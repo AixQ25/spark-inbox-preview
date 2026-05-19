@@ -235,7 +235,7 @@ public final class MainActivity extends Activity {
 
         LinearLayout activeSection = new LinearLayout(this);
         activeSection.setOrientation(LinearLayout.VERTICAL);
-        activeSection.setPadding(dp(2), 0, dp(2), 0);
+        activeSection.setPadding(dp(2), dp(14), dp(2), 0);
 
         LinearLayout activeHeader = new LinearLayout(this);
         activeHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -256,7 +256,7 @@ public final class MainActivity extends Activity {
 
         homeActiveList = new LinearLayout(this);
         homeActiveList.setOrientation(LinearLayout.VERTICAL);
-        homeActiveList.setPadding(0, dp(12), 0, 0);
+        homeActiveList.setPadding(0, dp(10), 0, 0);
         LinearLayout.LayoutParams homeListParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
@@ -460,7 +460,7 @@ public final class MainActivity extends Activity {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
-        nav.setPadding(0, 0, 0, dp(8));
+        nav.setPadding(0, 0, 0, dp(14));
         nav.setBackground(topBorderFill(COLOR_BG));
 
         navCapture = navItem("+\n记");
@@ -540,6 +540,8 @@ public final class MainActivity extends Activity {
         });
 
         homeActiveList.removeAllViews();
+        homeActiveList.setGravity(Gravity.TOP);
+        homeActiveList.setPadding(0, dp(10), 0, 0);
         if (active.isEmpty()) {
             TextView empty = label("还没有进行中的任务。", 12, COLOR_MUTED, Typeface.NORMAL);
             homeActiveList.addView(empty, wrap());

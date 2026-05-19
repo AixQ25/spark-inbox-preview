@@ -1,0 +1,461 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>灵光收集箱 · 首页布局预览</title>
+    <style>
+      :root {
+        --bg: #090d0b;
+        --app: #0d1411;
+        --panel: #121a16;
+        --panel-soft: #101713;
+        --line: #26342d;
+        --line-soft: #1d2823;
+        --text: #edf7f2;
+        --muted: #8b9b94;
+        --faint: #596b63;
+        --green: #62d5a0;
+        --green-strong: #80e8bb;
+        --green-soft: rgba(98, 213, 160, 0.14);
+        --amber: #e0aa47;
+        --amber-soft: rgba(224, 170, 71, 0.14);
+        --nav: #0b100e;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(98, 213, 160, 0.06), transparent 36%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      .stage {
+        width: min(100%, 1180px);
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: minmax(360px, 430px) minmax(280px, 420px);
+        align-items: center;
+        justify-content: center;
+        gap: 42px;
+        padding: 28px;
+      }
+
+      .phone {
+        position: relative;
+        width: 430px;
+        height: 932px;
+        overflow: hidden;
+        border: 1px solid #1d2823;
+        border-radius: 38px;
+        background: var(--app);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+      }
+
+      .status {
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 28px;
+        color: #f3fbf7;
+        font-size: 13px;
+        font-weight: 720;
+      }
+
+      .status-icons {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: #c7d3ce;
+        font-size: 12px;
+      }
+
+      .battery {
+        width: 28px;
+        height: 14px;
+        border-radius: 4px;
+        background: #31d35c;
+      }
+
+      .screen {
+        height: calc(100% - 42px);
+        display: flex;
+        flex-direction: column;
+        padding: 24px 22px 0;
+      }
+
+      .date {
+        margin: 0 0 16px 6px;
+        color: var(--green-strong);
+        font-size: 17px;
+        line-height: 1.2;
+        font-weight: 760;
+      }
+
+      .input-card {
+        height: 332px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel-soft);
+        padding: 22px 20px;
+      }
+
+      .placeholder {
+        color: var(--faint);
+        font-size: 19px;
+        line-height: 1.5;
+      }
+
+      .capture-bar {
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .type-group {
+        display: flex;
+        gap: 10px;
+      }
+
+      .pill {
+        height: 40px;
+        min-width: 74px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 15px;
+        font-weight: 720;
+      }
+
+      .pill.active {
+        border-color: var(--green);
+        background: var(--green-soft);
+        color: var(--green-strong);
+      }
+
+      .save {
+        min-width: 100px;
+        border-color: transparent;
+        background: #213129;
+        color: #71847b;
+      }
+
+      .active-block {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 34px 2px 0;
+      }
+
+      .active-module {
+        transform: translateY(16px);
+      }
+
+      .active-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 13px;
+        padding: 0 2px;
+      }
+
+      .active-head h2 {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.2;
+        font-weight: 820;
+        letter-spacing: 0;
+      }
+
+      .more {
+        color: var(--green-strong);
+        font-size: 14px;
+        line-height: 1;
+        font-weight: 720;
+      }
+
+      .task-list {
+        display: grid;
+        gap: 11px;
+      }
+
+      .task {
+        min-height: 88px;
+        display: grid;
+        grid-template-columns: 30px 1fr;
+        gap: 12px;
+        align-items: start;
+        border: 1px solid var(--line);
+        border-radius: 17px;
+        background: var(--panel);
+        padding: 15px 14px 14px;
+      }
+
+      .circle {
+        width: 25px;
+        height: 25px;
+        display: grid;
+        place-items: center;
+        margin-top: 2px;
+        border: 2px solid var(--amber);
+        border-radius: 999px;
+        background: var(--amber-soft);
+      }
+
+      .circle::after {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: var(--amber);
+        content: "";
+      }
+
+      .task-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.45;
+        font-weight: 760;
+      }
+
+      .task-meta {
+        margin-top: 4px;
+        color: var(--faint);
+        font-size: 12px;
+        line-height: 1.25;
+      }
+
+      .edit {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.2;
+        font-weight: 720;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 78px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--line);
+        background: rgba(10, 15, 13, 0.96);
+      }
+
+      .tab {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 4px;
+        padding-top: 12px;
+        color: var(--faint);
+        font-size: 13px;
+        font-weight: 720;
+      }
+
+      .tab.active {
+        color: var(--green);
+      }
+
+      .tab-icon {
+        height: 18px;
+        font-size: 20px;
+        line-height: 18px;
+      }
+
+      .home-indicator {
+        position: absolute;
+        right: 132px;
+        bottom: 8px;
+        left: 132px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .notes {
+        max-width: 420px;
+        color: #cad8d2;
+      }
+
+      .notes h1 {
+        margin: 0 0 14px;
+        color: #effaf4;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+
+      .notes p {
+        margin: 0 0 12px;
+        color: #9fb0a8;
+        font-size: 15px;
+        line-height: 1.75;
+      }
+
+      .notes strong {
+        color: var(--green-strong);
+      }
+
+      .metrics {
+        display: grid;
+        gap: 8px;
+        margin-top: 20px;
+        padding: 16px;
+        border: 1px solid #1f2b26;
+        border-radius: 14px;
+        background: rgba(18, 26, 22, 0.62);
+      }
+
+      .metrics div {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        color: #82938b;
+        font-size: 13px;
+      }
+
+      .metrics span:last-child {
+        color: #d8e6df;
+      }
+
+      @media (max-width: 860px) {
+        body {
+          place-items: start center;
+        }
+
+        .stage {
+          grid-template-columns: 1fr;
+          padding: 16px;
+        }
+
+        .phone {
+          width: min(100%, 430px);
+          height: min(932px, calc(100vh - 32px));
+          min-height: 760px;
+        }
+
+        .notes {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <section class="phone" aria-label="首页布局预览">
+        <div class="status">
+          <span>6:18</span>
+          <div class="status-icons">
+            <span>5G</span>
+            <span>▮▮▮▮</span>
+            <div class="battery"></div>
+          </div>
+        </div>
+
+        <div class="screen">
+          <div class="date">5月20日 · 星期三</div>
+
+          <section class="input-card">
+            <div class="placeholder">写下刚想到的东西...</div>
+          </section>
+
+          <section class="capture-bar" aria-label="记录操作">
+            <div class="type-group">
+              <div class="pill active">任务</div>
+              <div class="pill">灵感</div>
+            </div>
+            <div class="pill save">保存</div>
+          </section>
+
+          <section class="active-block">
+            <div class="active-module">
+              <div class="active-head">
+                <h2>进行中</h2>
+                <div class="more">查看更多</div>
+              </div>
+
+              <div class="task-list">
+                <article class="task">
+                  <div class="circle"></div>
+                  <div>
+                    <p class="task-title">HTML视频标签要查 controls、poster、source 三个点</p>
+                    <div class="task-meta">开始 05/20 06:08</div>
+                    <div class="edit">编辑</div>
+                  </div>
+                </article>
+
+                <article class="task">
+                  <div class="circle"></div>
+                  <div>
+                    <p class="task-title">酒馆学习可能需要先整理一个最小可开始清单</p>
+                    <div class="task-meta">开始 05/20 06:08</div>
+                    <div class="edit">编辑</div>
+                  </div>
+                </article>
+
+                <article class="task">
+                  <div class="circle"></div>
+                  <div>
+                    <p class="task-title">智能小车：先想清楚循迹和避障第一版怎么取舍</p>
+                    <div class="task-meta">开始 05/20 04:34</div>
+                    <div class="edit">编辑</div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <nav class="bottom-nav" aria-label="底部导航">
+          <div class="tab active">
+            <div class="tab-icon">+</div>
+            <div>记</div>
+          </div>
+          <div class="tab">
+            <div class="tab-icon">△</div>
+            <div>任务</div>
+          </div>
+          <div class="tab">
+            <div class="tab-icon">☆</div>
+            <div>灵感</div>
+          </div>
+        </nav>
+        <div class="home-indicator"></div>
+      </section>
+
+      <aside class="notes">
+        <h1>首页布局预览</h1>
+        <p>这个版本把<strong>“进行中”标题和任务卡片绑定成一个整体</strong>，整个模块轻微下移，但标题和第一条任务保持紧凑。</p>
+        <p>重点不是继续把任务单独往下推，而是让下半屏看起来属于同一个区域，避免标题和内容断开。</p>
+        <div class="metrics">
+          <div><span>标题到第一条任务</span><span>约 13px</span></div>
+          <div><span>任务之间距离</span><span>约 11px</span></div>
+          <div><span>底部 tab 内容</span><span>略向上</span></div>
+          <div><span>输入区位置</span><span>保持稳定</span></div>
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>
