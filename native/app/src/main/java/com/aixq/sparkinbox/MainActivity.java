@@ -52,23 +52,34 @@ public final class MainActivity extends Activity {
     private static final int COLOR_AMBER_SOFT = 0x22DCA247;
     private static final int COLOR_RED = 0xFFDC6B61;
     private static final int COLOR_RED_SOFT = 0x22DC6B61;
+    private static final int COLOR_PURPLE = 0xFFA78BFA;
+    private static final int COLOR_PURPLE_SOFT = 0x22A78BFA;
 
     private RecordStore store;
     private ArrayList<InboxRecord> records;
     private String activeTab = "capture";
-    private String activeFilter = "all";
+    private String captureType = InboxRecord.TYPE_TASK;
+    private String taskFilter = "all";
+    private String ideaFilter = "all";
 
     private FrameLayout contentFrame;
     private LinearLayout captureView;
-    private LinearLayout listView;
+    private LinearLayout taskView;
+    private LinearLayout ideaView;
     private EditText captureInput;
     private TextView saveButton;
+    private TextView typeTaskBtn;
+    private TextView typeIdeaBtn;
     private LinearLayout homeActiveList;
-    private EditText searchInput;
-    private LinearLayout recordList;
+    private EditText taskSearch;
+    private LinearLayout taskRecordList;
+    private EditText ideaSearch;
+    private LinearLayout ideaRecordList;
     private TextView navCapture;
-    private TextView navList;
-    private final ArrayList<TextView> filterButtons = new ArrayList<>();
+    private TextView navTask;
+    private TextView navIdea;
+    private final ArrayList<TextView> taskFilterButtons = new ArrayList<>();
+    private final ArrayList<TextView> ideaFilterButtons = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,6 +107,7 @@ public final class MainActivity extends Activity {
         root.setBackgroundColor(COLOR_APP);
         root.setLayoutParams(match());
 
+        root.setPadding(0, 0, 0, dp(12));
         contentFrame = new FrameLayout(this);
         root.addView(contentFrame, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -104,34 +116,38 @@ public final class MainActivity extends Activity {
         ));
 
         captureView = buildCaptureView();
-        listView = buildListView();
+        taskView = buildTaskView();
+        ideaView = buildIdeaView();
         contentFrame.addView(captureView, matchFrame());
-        contentFrame.addView(listView, matchFrame());
+        contentFrame.addView(taskView, matchFrame());
+        contentFrame.addView(ideaView, matchFrame());
 
         root.addView(buildBottomNav(), new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(66)
+            dp(56)
         ));
         setContentView(root);
     }
 
+    // ── Capture View ──
+
     private LinearLayout buildCaptureView() {
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL);
-        screen.setPadding(dp(20), dp(46), dp(20), dp(10));
+        screen.setPadding(dp(20), dp(40), dp(20), dp(10));
         screen.setBackgroundColor(COLOR_APP);
 
         TextView date = label(todayText(), 16, COLOR_GREEN_STRONG, Typeface.BOLD);
         date.setId(View.generateViewId());
         date.setTag("date");
         LinearLayout.LayoutParams dateParams = wrap();
-        dateParams.setMargins(0, 0, 0, dp(18));
+        dateParams.setMargins(dp(6), dp(2), 0, dp(10));
         screen.addView(date, dateParams);
 
         LinearLayout inputCard = new LinearLayout(this);
         inputCard.setOrientation(LinearLayout.VERTICAL);
         inputCard.setPadding(dp(16), dp(14), dp(16), dp(14));
-        inputCard.setBackground(rounded(COLOR_CARD_SOFT, COLOR_LINE, 16));
+        inputCard.setBackground(rounded(COLOR_CARD, COLOR_LINE, 16));
         inputCard.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 captureInput.requestFocus();
@@ -148,7 +164,7 @@ public final class MainActivity extends Activity {
         captureInput.setTextColor(COLOR_TEXT);
         captureInput.setTextSize(18);
         captureInput.setGravity(Gravity.TOP | Gravity.START);
-        captureInput.setMinLines(7);
+        captureInput.setMinLines(5);
         captureInput.setMaxLines(10);
         captureInput.setSingleLine(false);
         captureInput.setBackgroundColor(0x00000000);
@@ -167,13 +183,39 @@ public final class MainActivity extends Activity {
         screen.addView(inputCard, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
-            1.02f
+            0.85f
         ));
 
         LinearLayout footer = new LinearLayout(this);
         footer.setOrientation(LinearLayout.HORIZONTAL);
-        footer.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        footer.setPadding(0, dp(14), 0, 0);
+        footer.setGravity(Gravity.CENTER_VERTICAL);
+        footer.setPadding(0, dp(8), 0, 0);
+
+        LinearLayout typeGroup = new LinearLayout(this);
+        typeGroup.setOrientation(LinearLayout.HORIZONTAL);
+        typeGroup.setPadding(0, 0, dp(10), 0);
+
+        typeTaskBtn = typePill("任务", true);
+        typeTaskBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                captureType = InboxRecord.TYPE_TASK;
+                updateTypePills();
+            }
+        });
+        typeGroup.addView(typeTaskBtn, new LinearLayout.LayoutParams(dp(62), dp(36)));
+
+        typeIdeaBtn = typePill("灵感", false);
+        typeIdeaBtn.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                captureType = InboxRecord.TYPE_IDEA;
+                updateTypePills();
+            }
+        });
+        typeGroup.addView(typeIdeaBtn, new LinearLayout.LayoutParams(dp(62), dp(36)));
+
+        footer.addView(typeGroup, new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+        ));
 
         saveButton = pill("保存", COLOR_GREEN, 0xFF07100C);
         saveButton.setEnabled(false);
@@ -182,15 +224,17 @@ public final class MainActivity extends Activity {
                 addRecord();
             }
         });
-        footer.addView(saveButton, new LinearLayout.LayoutParams(dp(112), dp(46)));
-        screen.addView(footer, new LinearLayout.LayoutParams(
+        footer.addView(saveButton, new LinearLayout.LayoutParams(dp(80), dp(46)));
+        LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(62)
-        ));
+        );
+        footerParams.setMargins(0, dp(20), 0, 0);
+        screen.addView(footer, footerParams);
 
         LinearLayout activeSection = new LinearLayout(this);
         activeSection.setOrientation(LinearLayout.VERTICAL);
-        activeSection.setPadding(0, dp(18), 0, 0);
+        activeSection.setPadding(0, dp(8), 0, 0);
 
         LinearLayout activeHeader = new LinearLayout(this);
         activeHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -199,48 +243,70 @@ public final class MainActivity extends Activity {
         TextView more = actionText("查看更多", COLOR_GREEN_STRONG);
         more.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                activeFilter = InboxRecord.STATUS_ACTIVE;
-                switchTab("list");
+                taskFilter = InboxRecord.STATUS_ACTIVE;
+                switchTab("task");
             }
         });
         activeHeader.addView(more, wrap());
-        activeSection.addView(activeHeader, wrap());
+        activeSection.addView(activeHeader, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
 
         homeActiveList = new LinearLayout(this);
         homeActiveList.setOrientation(LinearLayout.VERTICAL);
-        homeActiveList.setPadding(0, dp(10), 0, 0);
-        activeSection.addView(homeActiveList, new LinearLayout.LayoutParams(
+        homeActiveList.setPadding(0, dp(28), 0, 0);
+        LinearLayout.LayoutParams homeListParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
             1f
-        ));
+        );
+        homeListParams.setMargins(0, 0, 0, 0);
+        activeSection.addView(homeActiveList, homeListParams);
         screen.addView(activeSection, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
-            0.85f
+            1.05f
         ));
 
         return screen;
     }
 
-    private LinearLayout buildListView() {
+    private void updateTypePills() {
+        boolean task = InboxRecord.TYPE_TASK.equals(captureType);
+        typeTaskBtn.setBackground(rounded(task ? COLOR_GREEN_SOFT : 0x00000000, task ? COLOR_GREEN : COLOR_LINE, 999));
+        typeTaskBtn.setTextColor(task ? COLOR_GREEN_STRONG : COLOR_MUTED);
+        typeIdeaBtn.setBackground(rounded(!task ? COLOR_PURPLE_SOFT : 0x00000000, !task ? COLOR_PURPLE : COLOR_LINE, 999));
+        typeIdeaBtn.setTextColor(!task ? COLOR_PURPLE : COLOR_MUTED);
+    }
+
+    private TextView typePill(String text, boolean active) {
+        TextView view = label(text, 13, active ? COLOR_GREEN_STRONG : COLOR_MUTED, Typeface.BOLD);
+        view.setGravity(Gravity.CENTER);
+        view.setBackground(rounded(active ? COLOR_GREEN_SOFT : 0x00000000, active ? COLOR_GREEN : COLOR_LINE, 999));
+        return view;
+    }
+
+    // ── Task View ──
+
+    private LinearLayout buildTaskView() {
         LinearLayout screen = new LinearLayout(this);
         screen.setOrientation(LinearLayout.VERTICAL);
         screen.setPadding(dp(18), dp(42), dp(18), 0);
         screen.setBackgroundColor(COLOR_APP);
 
-        searchInput = new EditText(this);
-        searchInput.setHint("搜索记录...");
-        searchInput.setHintTextColor(COLOR_FAINT);
-        searchInput.setTextColor(COLOR_TEXT);
-        searchInput.setTextSize(15);
-        searchInput.setSingleLine(true);
-        searchInput.setPadding(dp(15), 0, dp(15), 0);
-        searchInput.setBackground(rounded(COLOR_CARD, COLOR_LINE, 999));
-        searchInput.addTextChangedListener(new TextWatcher() {
+        taskSearch = new EditText(this);
+        taskSearch.setHint("搜索任务...");
+        taskSearch.setHintTextColor(COLOR_FAINT);
+        taskSearch.setTextColor(COLOR_TEXT);
+        taskSearch.setTextSize(15);
+        taskSearch.setSingleLine(true);
+        taskSearch.setPadding(dp(15), 0, dp(15), 0);
+        taskSearch.setBackground(rounded(COLOR_CARD, COLOR_LINE, 999));
+        taskSearch.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                renderList();
+                renderTaskList();
             }
             @Override public void afterTextChanged(Editable s) { }
         });
@@ -249,18 +315,18 @@ public final class MainActivity extends Activity {
             dp(46)
         );
         searchParams.setMargins(0, 0, 0, dp(12));
-        screen.addView(searchInput, searchParams);
+        screen.addView(taskSearch, searchParams);
 
         HorizontalScrollView filtersScroll = new HorizontalScrollView(this);
         filtersScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout filters = new LinearLayout(this);
         filters.setOrientation(LinearLayout.HORIZONTAL);
         filtersScroll.addView(filters, wrap());
-        addFilter(filters, "全部", "all");
-        addFilter(filters, "未处理", InboxRecord.STATUS_OPEN);
-        addFilter(filters, "进行中", InboxRecord.STATUS_ACTIVE);
-        addFilter(filters, "已完成", InboxRecord.STATUS_COMPLETED);
-        addFilter(filters, "已放弃", InboxRecord.STATUS_ABANDONED);
+        addTaskFilter(filters, "全部", "all");
+        addTaskFilter(filters, "未处理", InboxRecord.STATUS_OPEN);
+        addTaskFilter(filters, "进行中", InboxRecord.STATUS_ACTIVE);
+        addTaskFilter(filters, "已完成", InboxRecord.STATUS_COMPLETED);
+        addTaskFilter(filters, "已放弃", InboxRecord.STATUS_ABANDONED);
         screen.addView(filtersScroll, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(42)
@@ -268,10 +334,10 @@ public final class MainActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(false);
-        recordList = new LinearLayout(this);
-        recordList.setOrientation(LinearLayout.VERTICAL);
-        recordList.setPadding(0, dp(10), 0, dp(24));
-        scroll.addView(recordList, new ScrollView.LayoutParams(
+        taskRecordList = new LinearLayout(this);
+        taskRecordList.setOrientation(LinearLayout.VERTICAL);
+        taskRecordList.setPadding(0, dp(10), 0, dp(24));
+        scroll.addView(taskRecordList, new ScrollView.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ));
@@ -284,10 +350,116 @@ public final class MainActivity extends Activity {
         return screen;
     }
 
+    private void addTaskFilter(LinearLayout filters, String label, final String value) {
+        final TextView button = actionText(label, COLOR_MUTED);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(13), 0, dp(13), 0);
+        button.setBackground(rounded(COLOR_CARD, COLOR_LINE, 999));
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                taskFilter = value;
+                renderTaskList();
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(34)
+        );
+        params.setMargins(0, 0, dp(7), 0);
+        filters.addView(button, params);
+        taskFilterButtons.add(button);
+        button.setTag(value);
+    }
+
+    // ── Idea View ──
+
+    private LinearLayout buildIdeaView() {
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
+        screen.setPadding(dp(18), dp(42), dp(18), 0);
+        screen.setBackgroundColor(COLOR_APP);
+
+        ideaSearch = new EditText(this);
+        ideaSearch.setHint("搜索灵感...");
+        ideaSearch.setHintTextColor(COLOR_FAINT);
+        ideaSearch.setTextColor(COLOR_TEXT);
+        ideaSearch.setTextSize(15);
+        ideaSearch.setSingleLine(true);
+        ideaSearch.setPadding(dp(15), 0, dp(15), 0);
+        ideaSearch.setBackground(rounded(COLOR_CARD, COLOR_LINE, 999));
+        ideaSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                renderIdeaList();
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(46)
+        );
+        searchParams.setMargins(0, 0, 0, dp(12));
+        screen.addView(ideaSearch, searchParams);
+
+        HorizontalScrollView filtersScroll = new HorizontalScrollView(this);
+        filtersScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout filters = new LinearLayout(this);
+        filters.setOrientation(LinearLayout.HORIZONTAL);
+        filtersScroll.addView(filters, wrap());
+        addIdeaFilter(filters, "全部", "all");
+        addIdeaFilter(filters, "未处理", InboxRecord.STATUS_UNPROCESSED);
+        addIdeaFilter(filters, "已整理", InboxRecord.STATUS_ARCHIVED);
+        screen.addView(filtersScroll, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(42)
+        ));
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        ideaRecordList = new LinearLayout(this);
+        ideaRecordList.setOrientation(LinearLayout.VERTICAL);
+        ideaRecordList.setPadding(0, dp(10), 0, dp(24));
+        scroll.addView(ideaRecordList, new ScrollView.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        screen.addView(scroll, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ));
+
+        return screen;
+    }
+
+    private void addIdeaFilter(LinearLayout filters, String label, final String value) {
+        final TextView button = actionText(label, COLOR_MUTED);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(13), 0, dp(13), 0);
+        button.setBackground(rounded(COLOR_CARD, COLOR_LINE, 999));
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                ideaFilter = value;
+                renderIdeaList();
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(34)
+        );
+        params.setMargins(0, 0, dp(7), 0);
+        filters.addView(button, params);
+        ideaFilterButtons.add(button);
+        button.setTag(value);
+    }
+
+    // ── Bottom Nav ──
+
     private LinearLayout buildBottomNav() {
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setGravity(Gravity.CENTER);
+        nav.setPadding(0, 0, 0, dp(8));
         nav.setBackground(topBorderFill(COLOR_BG));
 
         navCapture = navItem("+\n记");
@@ -298,37 +470,26 @@ public final class MainActivity extends Activity {
         });
         nav.addView(navCapture, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
-        navList = navItem("☰\n看");
-        navList.setOnClickListener(new View.OnClickListener() {
+        navTask = navItem("△\n任务");
+        navTask.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                switchTab("list");
+                switchTab("task");
             }
         });
-        nav.addView(navList, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        nav.addView(navTask, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+
+        navIdea = navItem("☆\n灵感");
+        navIdea.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                switchTab("idea");
+            }
+        });
+        nav.addView(navIdea, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
         return nav;
     }
 
-    private void addFilter(LinearLayout filters, String label, final String value) {
-        final TextView button = actionText(label, COLOR_MUTED);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(13), 0, dp(13), 0);
-        button.setBackground(rounded(COLOR_CARD, COLOR_LINE, 999));
-        button.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                activeFilter = value;
-                renderList();
-            }
-        });
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            dp(34)
-        );
-        params.setMargins(0, 0, dp(7), 0);
-        filters.addView(button, params);
-        filterButtons.add(button);
-        button.setTag(value);
-    }
+    // ── Tab Switching ──
 
     private void switchTab(String tab) {
         activeTab = tab;
@@ -342,14 +503,20 @@ public final class MainActivity extends Activity {
 
     private void render() {
         captureView.setVisibility("capture".equals(activeTab) ? View.VISIBLE : View.GONE);
-        listView.setVisibility("list".equals(activeTab) ? View.VISIBLE : View.GONE);
+        taskView.setVisibility("task".equals(activeTab) ? View.VISIBLE : View.GONE);
+        ideaView.setVisibility("idea".equals(activeTab) ? View.VISIBLE : View.GONE);
         navCapture.setTextColor("capture".equals(activeTab) ? COLOR_GREEN : COLOR_FAINT);
-        navList.setTextColor("list".equals(activeTab) ? COLOR_GREEN : COLOR_FAINT);
+        navTask.setTextColor("task".equals(activeTab) ? COLOR_GREEN : COLOR_FAINT);
+        navIdea.setTextColor("idea".equals(activeTab) ? COLOR_PURPLE : COLOR_FAINT);
         renderHome();
-        renderList();
-        updateFilterButtons();
+        renderTaskList();
+        renderIdeaList();
+        updateTaskFilterButtons();
+        updateIdeaFilterButtons();
         updateInputState();
     }
+
+    // ── Home / Active Preview ──
 
     private void renderHome() {
         TextView date = findDateLabel(captureView);
@@ -359,7 +526,7 @@ public final class MainActivity extends Activity {
 
         ArrayList<InboxRecord> active = new ArrayList<>();
         for (InboxRecord record : records) {
-            if (InboxRecord.STATUS_ACTIVE.equals(record.status)) {
+            if (InboxRecord.TYPE_TASK.equals(record.type) && InboxRecord.STATUS_ACTIVE.equals(record.status)) {
                 active.add(record);
             }
         }
@@ -373,7 +540,7 @@ public final class MainActivity extends Activity {
 
         homeActiveList.removeAllViews();
         if (active.isEmpty()) {
-            TextView empty = label("还没有进行中的记录。", 12, COLOR_MUTED, Typeface.NORMAL);
+            TextView empty = label("还没有进行中的任务。", 12, COLOR_MUTED, Typeface.NORMAL);
             homeActiveList.addView(empty, wrap());
             return;
         }
@@ -383,7 +550,7 @@ public final class MainActivity extends Activity {
             homeActiveList.addView(homeRecordCard(active.get(i)));
         }
         if (active.size() > visible) {
-            TextView more = label("还有 " + (active.size() - visible) + " 条，去“看”页面处理。", 12, COLOR_MUTED, Typeface.NORMAL);
+            TextView more = label("还有 " + (active.size() - visible) + " 条，去「任务」页面处理。", 12, COLOR_MUTED, Typeface.NORMAL);
             LinearLayout.LayoutParams params = wrap();
             params.setMargins(0, dp(4), 0, 0);
             homeActiveList.addView(more, params);
@@ -401,7 +568,7 @@ public final class MainActivity extends Activity {
         circle.setStatus(record.status);
         circle.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                cycleRecord(record);
+                cycleTask(record);
             }
         });
         LinearLayout.LayoutParams circleParams = new LinearLayout.LayoutParams(dp(24), dp(24));
@@ -435,21 +602,21 @@ public final class MainActivity extends Activity {
         return card;
     }
 
-    private void renderList() {
-        if (recordList == null) {
-            return;
-        }
-        updateFilterButtons();
-        recordList.removeAllViews();
+    // ── Task List ──
 
-        ArrayList<InboxRecord> filtered = filteredRecords();
+    private void renderTaskList() {
+        if (taskRecordList == null) return;
+        updateTaskFilterButtons();
+        taskRecordList.removeAllViews();
+
+        ArrayList<InboxRecord> filtered = filteredTasks();
         if (filtered.isEmpty()) {
-            String text = searchInput.getText().toString().trim().isEmpty()
-                ? "还没有记录\n去“记”页面写下第一条"
-                : "没有找到相关记录";
+            String text = taskSearch.getText().toString().trim().isEmpty()
+                ? "还没有任务\n去「记」页面写下第一条"
+                : "没有找到相关任务";
             TextView empty = label(text, 14, COLOR_FAINT, Typeface.NORMAL);
             empty.setGravity(Gravity.CENTER);
-            recordList.addView(empty, new LinearLayout.LayoutParams(
+            taskRecordList.addView(empty, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(160)
             ));
@@ -461,14 +628,14 @@ public final class MainActivity extends Activity {
             TextView day = label(dayLabel(entry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
             LinearLayout.LayoutParams dayParams = wrap();
             dayParams.setMargins(0, dp(10), 0, dp(10));
-            recordList.addView(day, dayParams);
+            taskRecordList.addView(day, dayParams);
             for (InboxRecord record : entry.getValue()) {
-                recordList.addView(recordCard(record));
+                taskRecordList.addView(taskCard(record));
             }
         }
     }
 
-    private View recordCard(final InboxRecord record) {
+    private View taskCard(final InboxRecord record) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.TOP);
@@ -480,7 +647,7 @@ public final class MainActivity extends Activity {
         circle.setStatus(record.status);
         circle.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                cycleRecord(record);
+                cycleTask(record);
             }
         });
         LinearLayout.LayoutParams circleParams = new LinearLayout.LayoutParams(dp(24), dp(24));
@@ -495,8 +662,8 @@ public final class MainActivity extends Activity {
             content.setPaintFlags(content.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
         body.addView(content, wrap());
-        body.addView(label(metaText(record), 12, COLOR_FAINT, Typeface.NORMAL), wrap());
-        body.addView(actionsFor(record), wrap());
+        body.addView(label(taskMetaText(record), 12, COLOR_FAINT, Typeface.NORMAL), wrap());
+        body.addView(taskActionsFor(record), wrap());
         card.addView(body, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView delete = actionText("×", COLOR_FAINT);
@@ -518,31 +685,48 @@ public final class MainActivity extends Activity {
         return card;
     }
 
-    private View actionsFor(final InboxRecord record) {
+    private View taskActionsFor(final InboxRecord record) {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setPadding(0, dp(9), 0, 0);
-        actions.addView(action("编辑", COLOR_MUTED, new View.OnClickListener() {
+        actions.addView(actionBtn("编辑", COLOR_MUTED, new View.OnClickListener() {
             @Override public void onClick(View v) {
                 editRecord(record);
             }
         }));
 
-        if (InboxRecord.STATUS_ACTIVE.equals(record.status)) {
-            actions.addView(action("放回未处理", COLOR_MUTED, new View.OnClickListener() {
+        if (InboxRecord.STATUS_OPEN.equals(record.status)) {
+            actions.addView(actionBtn("完成", COLOR_MUTED, new View.OnClickListener() {
                 @Override public void onClick(View v) {
-                    pauseRecord(record);
+                    completeTask(record);
                 }
             }));
-            actions.addView(action("放弃", COLOR_RED, new View.OnClickListener() {
+            actions.addView(actionBtn("放弃", COLOR_RED, new View.OnClickListener() {
                 @Override public void onClick(View v) {
-                    abandonRecord(record);
+                    abandonTask(record);
                 }
             }));
-        } else if (InboxRecord.STATUS_OPEN.equals(record.status) || InboxRecord.STATUS_COMPLETED.equals(record.status)) {
-            actions.addView(action("放弃", COLOR_RED, new View.OnClickListener() {
+        } else if (InboxRecord.STATUS_ACTIVE.equals(record.status)) {
+            actions.addView(actionBtn("放回未处理", COLOR_MUTED, new View.OnClickListener() {
                 @Override public void onClick(View v) {
-                    abandonRecord(record);
+                    pauseTask(record);
+                }
+            }));
+            actions.addView(actionBtn("放弃", COLOR_RED, new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    abandonTask(record);
+                }
+            }));
+        } else if (InboxRecord.STATUS_COMPLETED.equals(record.status)) {
+            actions.addView(actionBtn("放弃", COLOR_RED, new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    abandonTask(record);
+                }
+            }));
+        } else if (InboxRecord.STATUS_ABANDONED.equals(record.status)) {
+            actions.addView(actionBtn("恢复", COLOR_MUTED, new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    reopenTask(record);
                 }
             }));
         }
@@ -550,98 +734,151 @@ public final class MainActivity extends Activity {
         return actions;
     }
 
-    private TextView action(String text, int color, View.OnClickListener listener) {
-        TextView view = actionText(text, color);
-        view.setPadding(0, 0, dp(14), 0);
-        view.setOnClickListener(listener);
-        return view;
+    // ── Idea List ──
+
+    private void renderIdeaList() {
+        if (ideaRecordList == null) return;
+        updateIdeaFilterButtons();
+        ideaRecordList.removeAllViews();
+
+        ArrayList<InboxRecord> filtered = filteredIdeas();
+        if (filtered.isEmpty()) {
+            String text = ideaSearch.getText().toString().trim().isEmpty()
+                ? "还没有灵感\n去「记」页面写下第一条"
+                : "没有找到相关灵感";
+            TextView empty = label(text, 14, COLOR_FAINT, Typeface.NORMAL);
+            empty.setGravity(Gravity.CENTER);
+            ideaRecordList.addView(empty, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(160)
+            ));
+            return;
+        }
+
+        LinkedHashMap<String, ArrayList<InboxRecord>> groups = groupedByDay(filtered);
+        for (Map.Entry<String, ArrayList<InboxRecord>> entry : groups.entrySet()) {
+            TextView day = label(dayLabel(entry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
+            LinearLayout.LayoutParams dayParams = wrap();
+            dayParams.setMargins(0, dp(10), 0, dp(10));
+            ideaRecordList.addView(day, dayParams);
+            for (InboxRecord record : entry.getValue()) {
+                ideaRecordList.addView(ideaCard(record));
+            }
+        }
     }
 
-    private ArrayList<InboxRecord> filteredRecords() {
-        String query = searchInput == null ? "" : searchInput.getText().toString().trim().toLowerCase(Locale.CHINA);
-        ArrayList<InboxRecord> filtered = new ArrayList<>();
-        for (InboxRecord record : records) {
-            if ("all".equals(activeFilter) && InboxRecord.STATUS_ABANDONED.equals(record.status)) {
-                continue;
-            }
-            if (!"all".equals(activeFilter) && !activeFilter.equals(record.status)) {
-                continue;
-            }
-            if (!query.isEmpty() && !record.content.toLowerCase(Locale.CHINA).contains(query)) {
-                continue;
-            }
-            filtered.add(record);
-        }
-        Collections.sort(filtered, new Comparator<InboxRecord>() {
-            @Override public int compare(InboxRecord a, InboxRecord b) {
-                return Long.compare(b.createdAt, a.createdAt);
+    private View ideaCard(final InboxRecord record) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.TOP);
+        card.setPadding(dp(14), dp(15), dp(10), dp(13));
+        card.setBackground(rounded(COLOR_CARD, COLOR_LINE, 14));
+        boolean archived = InboxRecord.STATUS_ARCHIVED.equals(record.status);
+        card.setAlpha(archived ? 0.72f : 1f);
+
+        final ArchiveCircle circle = new ArchiveCircle(this);
+        circle.setArchived(archived);
+        circle.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                toggleIdeaArchive(record);
             }
         });
-        return filtered;
+        LinearLayout.LayoutParams circleParams = new LinearLayout.LayoutParams(dp(24), dp(24));
+        circleParams.setMargins(0, dp(2), dp(12), 0);
+        card.addView(circle, circleParams);
+
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        TextView content = label(record.content, 15, archived ? COLOR_MUTED : COLOR_TEXT, Typeface.NORMAL);
+        content.setMaxLines(4);
+        if (archived) {
+            content.setPaintFlags(content.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+        }
+        body.addView(content, wrap());
+        body.addView(label(ideaMetaText(record), 12, COLOR_FAINT, Typeface.NORMAL), wrap());
+
+        LinearLayout ideaActions = new LinearLayout(this);
+        ideaActions.setOrientation(LinearLayout.HORIZONTAL);
+        ideaActions.setPadding(0, dp(9), 0, 0);
+        ideaActions.addView(actionBtn("编辑", COLOR_MUTED, new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                editRecord(record);
+            }
+        }));
+        body.addView(ideaActions, wrap());
+        card.addView(body, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView delete = actionText("×", COLOR_FAINT);
+        delete.setTextSize(22);
+        delete.setGravity(Gravity.CENTER);
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                deleteRecord(record);
+            }
+        });
+        card.addView(delete, new LinearLayout.LayoutParams(dp(32), dp(32)));
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 0, 0, dp(8));
+        card.setLayoutParams(params);
+        return card;
     }
 
-    private LinkedHashMap<String, ArrayList<InboxRecord>> groupedByDay(ArrayList<InboxRecord> list) {
-        LinkedHashMap<String, ArrayList<InboxRecord>> map = new LinkedHashMap<>();
-        for (InboxRecord record : list) {
-            String key = dateKey(record.createdAt);
-            if (!map.containsKey(key)) {
-                map.put(key, new ArrayList<InboxRecord>());
-            }
-            map.get(key).add(record);
-        }
-        return map;
-    }
+    // ── Record Operations ──
 
     private void addRecord() {
         String content = captureInput.getText().toString().trim();
-        if (content.isEmpty()) {
-            return;
+        if (content.isEmpty()) return;
+
+        InboxRecord record;
+        if (InboxRecord.TYPE_TASK.equals(captureType)) {
+            record = new InboxRecord(UUID.randomUUID().toString(), content, InboxRecord.TYPE_TASK, InboxRecord.STATUS_OPEN, System.currentTimeMillis());
+        } else {
+            record = new InboxRecord(UUID.randomUUID().toString(), content, InboxRecord.TYPE_IDEA, InboxRecord.STATUS_UNPROCESSED, System.currentTimeMillis());
         }
-        InboxRecord record = new InboxRecord(UUID.randomUUID().toString(), content, InboxRecord.STATUS_OPEN, System.currentTimeMillis());
         records.add(0, record);
         captureInput.setText("");
         persistAndRender("已保存");
     }
 
-    private void cycleRecord(InboxRecord record) {
+    private void cycleTask(InboxRecord record) {
         if (InboxRecord.STATUS_OPEN.equals(record.status)) {
-            startRecord(record);
+            startTask(record);
         } else if (InboxRecord.STATUS_ACTIVE.equals(record.status)) {
-            completeRecord(record);
+            completeTask(record);
         } else {
-            reopenRecord(record);
+            reopenTask(record);
         }
     }
 
-    private void startRecord(InboxRecord record) {
+    private void startTask(InboxRecord record) {
         long now = System.currentTimeMillis();
         record.status = InboxRecord.STATUS_ACTIVE;
-        if (record.startedAt == 0L) {
-            record.startedAt = now;
-        }
+        if (record.startedAt == 0L) record.startedAt = now;
         record.updatedAt = now;
         persistAndRender("已开始");
     }
 
-    private void completeRecord(InboxRecord record) {
+    private void completeTask(InboxRecord record) {
         long now = System.currentTimeMillis();
         record.status = InboxRecord.STATUS_COMPLETED;
-        if (record.startedAt == 0L) {
-            record.startedAt = now;
-        }
+        if (record.startedAt == 0L) record.startedAt = now;
         record.completedAt = now;
         record.abandonedAt = 0L;
         record.updatedAt = now;
         persistAndRender("已完成");
     }
 
-    private void pauseRecord(InboxRecord record) {
+    private void pauseTask(InboxRecord record) {
         record.status = InboxRecord.STATUS_OPEN;
         record.updatedAt = System.currentTimeMillis();
         persistAndRender("已放回未处理");
     }
 
-    private void abandonRecord(InboxRecord record) {
+    private void abandonTask(InboxRecord record) {
         long now = System.currentTimeMillis();
         record.status = InboxRecord.STATUS_ABANDONED;
         record.completedAt = 0L;
@@ -650,13 +887,25 @@ public final class MainActivity extends Activity {
         persistAndRender("已放弃");
     }
 
-    private void reopenRecord(InboxRecord record) {
+    private void reopenTask(InboxRecord record) {
         record.status = InboxRecord.STATUS_OPEN;
         record.startedAt = 0L;
         record.completedAt = 0L;
         record.abandonedAt = 0L;
         record.updatedAt = System.currentTimeMillis();
         persistAndRender("已恢复为未处理");
+    }
+
+    private void toggleIdeaArchive(InboxRecord record) {
+        if (InboxRecord.STATUS_ARCHIVED.equals(record.status)) {
+            record.status = InboxRecord.STATUS_UNPROCESSED;
+            record.archivedAt = 0L;
+            persistAndRender("已标记为未处理");
+        } else {
+            record.status = InboxRecord.STATUS_ARCHIVED;
+            record.archivedAt = System.currentTimeMillis();
+            persistAndRender("已标记为已整理");
+        }
     }
 
     private void editRecord(final InboxRecord record) {
@@ -711,44 +960,105 @@ public final class MainActivity extends Activity {
             .show();
     }
 
+    // ── Filter & Data Helpers ──
+
+    private ArrayList<InboxRecord> filteredTasks() {
+        String query = taskSearch == null ? "" : taskSearch.getText().toString().trim().toLowerCase(Locale.CHINA);
+        ArrayList<InboxRecord> filtered = new ArrayList<>();
+        for (InboxRecord record : records) {
+            if (!InboxRecord.TYPE_TASK.equals(record.type)) continue;
+            if ("all".equals(taskFilter) && InboxRecord.STATUS_ABANDONED.equals(record.status)) continue;
+            if (!"all".equals(taskFilter) && !taskFilter.equals(record.status)) continue;
+            if (!query.isEmpty() && !record.content.toLowerCase(Locale.CHINA).contains(query)) continue;
+            filtered.add(record);
+        }
+        Collections.sort(filtered, new Comparator<InboxRecord>() {
+            @Override public int compare(InboxRecord a, InboxRecord b) {
+                return Long.compare(b.createdAt, a.createdAt);
+            }
+        });
+        return filtered;
+    }
+
+    private ArrayList<InboxRecord> filteredIdeas() {
+        String query = ideaSearch == null ? "" : ideaSearch.getText().toString().trim().toLowerCase(Locale.CHINA);
+        ArrayList<InboxRecord> filtered = new ArrayList<>();
+        for (InboxRecord record : records) {
+            if (!InboxRecord.TYPE_IDEA.equals(record.type)) continue;
+            if (!"all".equals(ideaFilter) && !ideaFilter.equals(record.status)) continue;
+            if (!query.isEmpty() && !record.content.toLowerCase(Locale.CHINA).contains(query)) continue;
+            filtered.add(record);
+        }
+        Collections.sort(filtered, new Comparator<InboxRecord>() {
+            @Override public int compare(InboxRecord a, InboxRecord b) {
+                return Long.compare(b.createdAt, a.createdAt);
+            }
+        });
+        return filtered;
+    }
+
+    private LinkedHashMap<String, ArrayList<InboxRecord>> groupedByDay(ArrayList<InboxRecord> list) {
+        LinkedHashMap<String, ArrayList<InboxRecord>> map = new LinkedHashMap<>();
+        for (InboxRecord record : list) {
+            String key = dateKey(record.createdAt);
+            if (!map.containsKey(key)) {
+                map.put(key, new ArrayList<InboxRecord>());
+            }
+            map.get(key).add(record);
+        }
+        return map;
+    }
+
+    // ── Persistence ──
+
     private void persistAndRender(String message) {
         store.saveRecords(records);
         render();
         toast(message);
     }
 
-    private void updateFilterButtons() {
-        for (TextView button : filterButtons) {
-            boolean active = activeFilter.equals(button.getTag());
+    // ── UI Update Helpers ──
+
+    private void updateTaskFilterButtons() {
+        for (TextView button : taskFilterButtons) {
+            boolean active = taskFilter.equals(button.getTag());
             button.setTextColor(active ? COLOR_GREEN_STRONG : COLOR_MUTED);
             button.setBackground(rounded(active ? COLOR_GREEN_SOFT : COLOR_CARD, active ? COLOR_GREEN : COLOR_LINE, 999));
         }
     }
 
+    private void updateIdeaFilterButtons() {
+        for (TextView button : ideaFilterButtons) {
+            boolean active = ideaFilter.equals(button.getTag());
+            button.setTextColor(active ? COLOR_PURPLE : COLOR_MUTED);
+            button.setBackground(rounded(active ? COLOR_PURPLE_SOFT : COLOR_CARD, active ? COLOR_PURPLE : COLOR_LINE, 999));
+        }
+    }
+
     private void updateInputState() {
-        int length = captureInput.getText().toString().trim().length();
-        boolean enabled = length > 0;
+        boolean enabled = captureInput.getText().toString().trim().length() > 0;
         saveButton.setEnabled(enabled);
         saveButton.setTextColor(enabled ? 0xFF07100C : 0xFF6F837A);
         saveButton.setBackground(rounded(enabled ? COLOR_GREEN : 0xFF213029, 0x00000000, 999));
     }
 
-    private String metaText(InboxRecord record) {
+    // ── Text Formatting ──
+
+    private String taskMetaText(InboxRecord record) {
         ArrayList<String> parts = new ArrayList<>();
         parts.add(statusLabel(record.status) + " · 记录 " + formatDateTime(record.createdAt));
-        if (record.startedAt > 0L) {
-            parts.add("开始 " + formatDateTime(record.startedAt));
-        }
-        if (record.completedAt > 0L) {
-            parts.add("完成 " + formatDateTime(record.completedAt));
-        }
-        if (record.abandonedAt > 0L) {
-            parts.add("放弃 " + formatDateTime(record.abandonedAt));
-        }
-        if (record.updatedAt > 0L) {
-            parts.add("更新 " + formatDateTime(record.updatedAt));
-        }
+        if (record.startedAt > 0L) parts.add("开始 " + formatDateTime(record.startedAt));
+        if (record.completedAt > 0L) parts.add("完成 " + formatDateTime(record.completedAt));
+        if (record.abandonedAt > 0L) parts.add("放弃 " + formatDateTime(record.abandonedAt));
         return join(parts, " · ");
+    }
+
+    private String ideaMetaText(InboxRecord record) {
+        String text = "记录 " + formatDateTime(record.createdAt);
+        if (record.archivedAt > 0L) {
+            text += " · 整理 " + formatDateTime(record.archivedAt);
+        }
+        return text;
     }
 
     private String statusLabel(String status) {
@@ -789,13 +1099,13 @@ public final class MainActivity extends Activity {
     private String join(ArrayList<String> items, String separator) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
-            if (i > 0) {
-                builder.append(separator);
-            }
+            if (i > 0) builder.append(separator);
             builder.append(items.get(i));
         }
         return builder.toString();
     }
+
+    // ── View Helpers ──
 
     private TextView findDateLabel(ViewGroup root) {
         for (int i = 0; i < root.getChildCount(); i++) {
@@ -826,6 +1136,13 @@ public final class MainActivity extends Activity {
         return view;
     }
 
+    private TextView actionBtn(String text, int color, View.OnClickListener listener) {
+        TextView view = actionText(text, color);
+        view.setPadding(0, 0, dp(14), 0);
+        view.setOnClickListener(listener);
+        return view;
+    }
+
     private TextView pill(String text, int fill, int color) {
         TextView view = label(text, 15, color, Typeface.BOLD);
         view.setGravity(Gravity.CENTER);
@@ -848,13 +1165,6 @@ public final class MainActivity extends Activity {
         if (stroke != 0x00000000) {
             drawable.setStroke(dp(1), stroke);
         }
-        return drawable;
-    }
-
-    private GradientDrawable topBorder() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(COLOR_APP);
-        drawable.setStroke(dp(1), COLOR_LINE);
         return drawable;
     }
 
@@ -902,6 +1212,8 @@ public final class MainActivity extends Activity {
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
     }
+
+    // ── Status Circle (for tasks) ──
 
     public static final class StatusCircle extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -953,29 +1265,71 @@ public final class MainActivity extends Activity {
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(COLOR_AMBER);
                 canvas.drawCircle(cx, cy, radius * 0.36f, paint);
-                return;
-            }
-
-            if (InboxRecord.STATUS_COMPLETED.equals(status)) {
+            } else if (InboxRecord.STATUS_COMPLETED.equals(status)) {
                 paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(3.2f);
-                paint.setStrokeCap(Paint.Cap.ROUND);
-                paint.setStrokeJoin(Paint.Join.ROUND);
+                paint.setStrokeWidth(3.5f);
                 paint.setColor(0xFF07100C);
                 checkPath.reset();
-                checkPath.moveTo(cx - radius * 0.45f, cy);
-                checkPath.lineTo(cx - radius * 0.1f, cy + radius * 0.34f);
-                checkPath.lineTo(cx + radius * 0.5f, cy - radius * 0.38f);
+                float s = radius * 0.45f;
+                checkPath.moveTo(cx - s * 0.8f, cy);
+                checkPath.lineTo(cx - s * 0.2f, cy + s * 0.5f);
+                checkPath.lineTo(cx + s, cy - s * 0.6f);
                 canvas.drawPath(checkPath, paint);
-                return;
-            }
-
-            if (InboxRecord.STATUS_ABANDONED.equals(status)) {
+            } else if (InboxRecord.STATUS_ABANDONED.equals(status)) {
                 paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(3.2f);
-                paint.setStrokeCap(Paint.Cap.ROUND);
+                paint.setStrokeWidth(3f);
                 paint.setColor(COLOR_RED);
-                canvas.drawLine(cx - radius * 0.36f, cy, cx + radius * 0.36f, cy, paint);
+                float s = radius * 0.5f;
+                canvas.drawLine(cx - s, cy, cx + s, cy, paint);
+            }
+        }
+    }
+
+    // ── Archive Circle (for ideas) ──
+
+    public static final class ArchiveCircle extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path checkPath = new Path();
+        private boolean archived = false;
+
+        public ArchiveCircle(Context context) {
+            super(context);
+            setWillNotDraw(false);
+        }
+
+        void setArchived(boolean archived) {
+            this.archived = archived;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float width = getWidth();
+            float height = getHeight();
+            float cx = width / 2f;
+            float cy = height / 2f;
+            float radius = Math.min(width, height) / 2f - 2f;
+
+            if (archived) {
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(COLOR_PURPLE);
+                canvas.drawCircle(cx, cy, radius, paint);
+
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(3.5f);
+                paint.setColor(0xFFFFFFFF);
+                checkPath.reset();
+                float s = radius * 0.45f;
+                checkPath.moveTo(cx - s * 0.8f, cy);
+                checkPath.lineTo(cx - s * 0.2f, cy + s * 0.5f);
+                checkPath.lineTo(cx + s, cy - s * 0.6f);
+                canvas.drawPath(checkPath, paint);
+            } else {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(3f);
+                paint.setColor(COLOR_FAINT);
+                canvas.drawCircle(cx, cy, radius, paint);
             }
         }
     }

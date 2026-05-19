@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$WorkspaceRoot = Split-Path -Parent $ProjectRoot
+$AppRoot = Join-Path $ProjectRoot "app"
 
 $SdkRoot = "D:\Softwear\Android_Studio_sdk"
 $JavaHome = "D:\Softwear\Android Studio\jbr"
@@ -28,52 +28,48 @@ foreach ($required in @($SdkRoot, $JavaHome, $Aapt2, $D8, $Zipalign, $Apksigner,
 }
 
 function Invoke-Tool {
-    param(
-        [string] $FilePath,
-        [string[]] $Arguments
-    )
-
+    param([string] $FilePath, [string[]] $Arguments)
     & $FilePath @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "Command failed: $FilePath $($Arguments -join ' ')"
     }
 }
 
-$BuildDir = Join-Path $ProjectRoot "build-work"
+$BuildDir = Join-Path $env:TEMP "spark-inbox-build-$PID"
+$DistDir = Join-Path $ProjectRoot "dist"
+
+# Source paths (direct from AppRoot, no copy needed)
+$Manifest = Join-Path $AppRoot "src\main\AndroidManifest.xml"
+$ResDir = Join-Path $AppRoot "src\main\res"
+$JavaDir = Join-Path $AppRoot "src\main\java"
+
+# Build artifact dirs
 $CompiledDir = Join-Path $BuildDir "compiled"
 $GenDir = Join-Path $BuildDir "gen"
 $ClassesDir = Join-Path $BuildDir "classes"
 $DexDir = Join-Path $BuildDir "dex"
-$DistDir = Join-Path $ProjectRoot "dist"
 
-Remove-Item -LiteralPath $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $CompiledDir, $GenDir, $ClassesDir, $DexDir, $DistDir | Out-Null
-
-# Copy sources to an ASCII temp path before invoking Android tools.
-$Manifest = Join-Path $ProjectRoot "app\src\main\AndroidManifest.xml"
-$ResDir = Join-Path $ProjectRoot "app\src\main\res"
-$JavaDir = Join-Path $ProjectRoot "app\src\main\java"
-New-Item -ItemType Directory -Force -Path (Join-Path $BuildDir "app\src\main") | Out-Null
-Copy-Item -LiteralPath $Manifest -Destination (Join-Path $BuildDir "app\src\main\AndroidManifest.xml") -Force
-Copy-Item -LiteralPath $ResDir -Destination (Join-Path $BuildDir "app\src\main\res") -Recurse -Force
-Copy-Item -LiteralPath $JavaDir -Destination (Join-Path $BuildDir "app\src\main\java") -Recurse -Force
-
-$Manifest = Join-Path $BuildDir "app\src\main\AndroidManifest.xml"
-$ResDir = Join-Path $BuildDir "app\src\main\res"
-$JavaDir = Join-Path $BuildDir "app\src\main\java"
 $UnsignedApk = Join-Path $BuildDir "unsigned.apk"
 $UnsignedDexApk = Join-Path $BuildDir "unsigned-with-dex.apk"
 $AlignedApk = Join-Path $BuildDir "aligned.apk"
 $ClassesJar = Join-Path $BuildDir "classes.jar"
 $SignedApk = Join-Path $BuildDir "spark-inbox-debug.apk"
 $OutputApk = Join-Path $DistDir "spark-inbox-debug.apk"
-$Keystore = Join-Path $WorkspaceRoot "spark-inbox-debug.keystore"
+$Keystore = Join-Path $ProjectRoot "..\spark-inbox-debug.keystore"
 
+# Clean and recreate build dirs
+foreach ($d in @($CompiledDir, $GenDir, $ClassesDir, $DexDir, $DistDir)) {
+    Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+}
+
+# Compile resources
 $ResourceFiles = Get-ChildItem -Path $ResDir -Recurse -File
 foreach ($resource in $ResourceFiles) {
     Invoke-Tool $Aapt2 @("compile", $resource.FullName, "-o", $CompiledDir)
 }
 
+# Link resources
 $CompiledFiles = @(Get-ChildItem -Path $CompiledDir -Filter *.flat -File | ForEach-Object { $_.FullName })
 $LinkArgs = @(
     "link",
@@ -89,6 +85,7 @@ $LinkArgs = @(
 ) + $CompiledFiles
 Invoke-Tool $Aapt2 $LinkArgs
 
+# Compile Java
 $JavaFiles = @(
     Get-ChildItem -Path $JavaDir -Recurse -Filter *.java -File
     Get-ChildItem -Path $GenDir -Recurse -Filter *.java -File
@@ -100,23 +97,23 @@ Invoke-Tool $Javac @("-encoding", "UTF-8", "-source", "17", "-target", "17", "-c
 Invoke-Tool $JarTool @("--create", "--file", $ClassesJar, "-C", $ClassesDir, ".")
 Invoke-Tool $D8 @("--lib", $PlatformJar, "--output", $DexDir, $ClassesJar)
 
+# Package dex into APK
 Copy-Item -LiteralPath $UnsignedApk -Destination $UnsignedDexApk -Force
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::Open($UnsignedDexApk, [System.IO.Compression.ZipArchiveMode]::Update)
 try {
     $existing = $zip.GetEntry("classes.dex")
-    if ($existing) {
-        $existing.Delete()
-    }
+    if ($existing) { $existing.Delete() }
     [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, (Join-Path $DexDir "classes.dex"), "classes.dex") | Out-Null
-}
-finally {
+} finally {
     $zip.Dispose()
 }
 
+# Align
 Invoke-Tool $Zipalign @("-f", "4", $UnsignedDexApk, $AlignedApk)
 
+# Key
 if (!(Test-Path $Keystore)) {
     Invoke-Tool $Keytool @(
         "-genkeypair",
@@ -133,6 +130,7 @@ if (!(Test-Path $Keystore)) {
     )
 }
 
+# Sign
 Invoke-Tool $Apksigner @(
     "sign",
     "--ks", $Keystore,

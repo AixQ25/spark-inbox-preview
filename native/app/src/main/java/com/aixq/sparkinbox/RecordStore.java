@@ -11,7 +11,7 @@ import java.util.UUID;
 
 final class RecordStore {
     private static final String PREFS = "spark_inbox";
-    private static final String KEY_RECORDS = "records_v1";
+    private static final String KEY_RECORDS = "records_v2";
 
     private final SharedPreferences prefs;
 
@@ -43,7 +43,6 @@ final class RecordStore {
             try {
                 array.put(record.toJson());
             } catch (JSONException ignored) {
-                // Skip malformed records rather than losing the whole list.
             }
         }
         prefs.edit().putString(KEY_RECORDS, array.toString()).apply();
@@ -57,7 +56,7 @@ final class RecordStore {
         InboxRecord car = new InboxRecord(
             UUID.randomUUID().toString(),
             "智能小车：先想清楚循迹和避障第一版怎么取舍",
-            InboxRecord.STATUS_ACTIVE,
+            InboxRecord.TYPE_TASK, InboxRecord.STATUS_ACTIVE,
             now - minute * 180
         );
         car.startedAt = now - minute * 90;
@@ -66,21 +65,21 @@ final class RecordStore {
         records.add(new InboxRecord(
             UUID.randomUUID().toString(),
             "HTML视频标签要查 controls、poster、source 三个点",
-            InboxRecord.STATUS_OPEN,
+            InboxRecord.TYPE_TASK, InboxRecord.STATUS_OPEN,
             now - minute * 260
         ));
 
         records.add(new InboxRecord(
             UUID.randomUUID().toString(),
             "酒馆学习可能需要先整理一个最小可开始清单",
-            InboxRecord.STATUS_OPEN,
+            InboxRecord.TYPE_TASK, InboxRecord.STATUS_OPEN,
             now - minute * 620
         ));
 
         InboxRecord completed = new InboxRecord(
             UUID.randomUUID().toString(),
             "app 不应该只是记录，更应该是想法的暂存入口",
-            InboxRecord.STATUS_COMPLETED,
+            InboxRecord.TYPE_TASK, InboxRecord.STATUS_COMPLETED,
             now - minute * 1400
         );
         completed.startedAt = now - minute * 1000;
@@ -90,11 +89,28 @@ final class RecordStore {
         InboxRecord abandoned = new InboxRecord(
             UUID.randomUUID().toString(),
             "先不做复杂优先级矩阵，第一版会太重",
-            InboxRecord.STATUS_ABANDONED,
+            InboxRecord.TYPE_TASK, InboxRecord.STATUS_ABANDONED,
             now - minute * 1800
         );
         abandoned.abandonedAt = now - minute * 1200;
         records.add(abandoned);
+
+        InboxRecord idea1 = new InboxRecord(
+            UUID.randomUUID().toString(),
+            "基因的自私性——这个角度可以联系到人类社会合作行为",
+            InboxRecord.TYPE_IDEA, InboxRecord.STATUS_UNPROCESSED,
+            now - minute * 300
+        );
+        records.add(idea1);
+
+        InboxRecord idea2 = new InboxRecord(
+            UUID.randomUUID().toString(),
+            "Obsidian 里整理笔记时发现知识网络的连接比内容本身更重要",
+            InboxRecord.TYPE_IDEA, InboxRecord.STATUS_ARCHIVED,
+            now - minute * 2600
+        );
+        idea2.archivedAt = now - minute * 1800;
+        records.add(idea2);
 
         saveRecords(records);
         return records;
