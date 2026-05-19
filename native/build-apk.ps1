@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppRoot = Join-Path $ProjectRoot "app"
+$AppsRoot = Split-Path -Parent (Split-Path -Parent $ProjectRoot)
 
 $SdkRoot = "D:\Softwear\Android_Studio_sdk"
 $JavaHome = "D:\Softwear\Android Studio\jbr"
@@ -37,6 +38,7 @@ function Invoke-Tool {
 
 $BuildDir = Join-Path $env:TEMP "spark-inbox-build-$PID"
 $DistDir = Join-Path $ProjectRoot "dist"
+$LocalDir = Join-Path $AppsRoot ".android-debug"
 
 # Source paths (direct from AppRoot, no copy needed)
 $Manifest = Join-Path $AppRoot "src\main\AndroidManifest.xml"
@@ -55,13 +57,14 @@ $AlignedApk = Join-Path $BuildDir "aligned.apk"
 $ClassesJar = Join-Path $BuildDir "classes.jar"
 $SignedApk = Join-Path $BuildDir "spark-inbox-debug.apk"
 $OutputApk = Join-Path $DistDir "spark-inbox-debug.apk"
-$Keystore = Join-Path $ProjectRoot "..\spark-inbox-debug.keystore"
+$Keystore = Join-Path $LocalDir "spark-inbox-debug.keystore"
 
 # Clean and recreate build dirs
 foreach ($d in @($CompiledDir, $GenDir, $ClassesDir, $DexDir, $DistDir)) {
     Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $d | Out-Null
 }
+New-Item -ItemType Directory -Force -Path $LocalDir | Out-Null
 
 # Compile resources
 $ResourceFiles = Get-ChildItem -Path $ResDir -Recurse -File
@@ -146,3 +149,4 @@ Invoke-Tool $Apksigner @(
 Invoke-Tool $Apksigner @("verify", "--verbose", $SignedApk)
 Copy-Item -LiteralPath $SignedApk -Destination $OutputApk -Force
 Write-Host "APK built: $OutputApk"
+Remove-Item -LiteralPath $BuildDir -Recurse -Force -ErrorAction SilentlyContinue

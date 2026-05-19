@@ -65,6 +65,15 @@
 - 底部导航高度缩减并添加底部内边距，避开系统导航栏重叠。
 - 真机安装并验证：三 tab 切换、任务/灵感分别创建和筛选、首页三个任务完整显示。
 
+### 打包目录整理
+
+- 保留 `apps/spark-inbox-preview` 作为唯一主项目，原生 Android 源码以 `native/app` 为准。
+- 删除旧独立副本 `apps/spark-inbox-native` 和旧临时构建目录 `apps/spark-inbox-native-build`。
+- 删除历史遗留的根目录 debug keystore。
+- `native/build-apk.ps1` 改为使用系统临时目录编译，并在构建成功后自动清理临时目录。
+- debug keystore 移到 `apps/.android-debug/`，不再生成到项目目录。
+- 项目内只保留 `native/dist/` 作为 APK 输出目录，且已被 Git 忽略。
+
 ## GitHub 同步说明
 
 - GitHub 仓库：`https://github.com/AixQ25/spark-inbox-preview`
