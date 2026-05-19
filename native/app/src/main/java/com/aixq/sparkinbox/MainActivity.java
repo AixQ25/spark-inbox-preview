@@ -183,17 +183,16 @@ public final class MainActivity extends Activity {
         screen.addView(inputCard, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
-            0.85f
+            0.82f
         ));
 
         LinearLayout footer = new LinearLayout(this);
         footer.setOrientation(LinearLayout.HORIZONTAL);
         footer.setGravity(Gravity.CENTER_VERTICAL);
-        footer.setPadding(0, dp(8), 0, 0);
+        footer.setPadding(dp(2), 0, dp(2), 0);
 
         LinearLayout typeGroup = new LinearLayout(this);
         typeGroup.setOrientation(LinearLayout.HORIZONTAL);
-        typeGroup.setPadding(0, 0, dp(10), 0);
 
         typeTaskBtn = typePill("任务", true);
         typeTaskBtn.setOnClickListener(new View.OnClickListener() {
@@ -202,7 +201,9 @@ public final class MainActivity extends Activity {
                 updateTypePills();
             }
         });
-        typeGroup.addView(typeTaskBtn, new LinearLayout.LayoutParams(dp(62), dp(36)));
+        LinearLayout.LayoutParams taskTypeParams = new LinearLayout.LayoutParams(dp(68), dp(40));
+        taskTypeParams.setMargins(0, 0, dp(8), 0);
+        typeGroup.addView(typeTaskBtn, taskTypeParams);
 
         typeIdeaBtn = typePill("灵感", false);
         typeIdeaBtn.setOnClickListener(new View.OnClickListener() {
@@ -211,7 +212,7 @@ public final class MainActivity extends Activity {
                 updateTypePills();
             }
         });
-        typeGroup.addView(typeIdeaBtn, new LinearLayout.LayoutParams(dp(62), dp(36)));
+        typeGroup.addView(typeIdeaBtn, new LinearLayout.LayoutParams(dp(68), dp(40)));
 
         footer.addView(typeGroup, new LinearLayout.LayoutParams(
             0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
@@ -224,17 +225,17 @@ public final class MainActivity extends Activity {
                 addRecord();
             }
         });
-        footer.addView(saveButton, new LinearLayout.LayoutParams(dp(80), dp(46)));
+        footer.addView(saveButton, new LinearLayout.LayoutParams(dp(92), dp(40)));
         LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(62)
+            dp(40)
         );
-        footerParams.setMargins(0, dp(20), 0, 0);
+        footerParams.setMargins(0, dp(12), 0, dp(18));
         screen.addView(footer, footerParams);
 
         LinearLayout activeSection = new LinearLayout(this);
         activeSection.setOrientation(LinearLayout.VERTICAL);
-        activeSection.setPadding(0, dp(8), 0, 0);
+        activeSection.setPadding(dp(2), 0, dp(2), 0);
 
         LinearLayout activeHeader = new LinearLayout(this);
         activeHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -255,7 +256,7 @@ public final class MainActivity extends Activity {
 
         homeActiveList = new LinearLayout(this);
         homeActiveList.setOrientation(LinearLayout.VERTICAL);
-        homeActiveList.setPadding(0, dp(28), 0, 0);
+        homeActiveList.setPadding(0, dp(12), 0, 0);
         LinearLayout.LayoutParams homeListParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
@@ -266,7 +267,7 @@ public final class MainActivity extends Activity {
         screen.addView(activeSection, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             0,
-            1.05f
+            1.08f
         ));
 
         return screen;
