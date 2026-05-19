@@ -1,0 +1,5 @@
+native/build-work/
+native/dist/
+*.apk
+*.keystore
+

@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>灵光收集箱 · 时间线预览</title>
+  <style>
+    :root {
+      --bg: #f4f7f6;
+      --card: #ffffff;
+      --ink: #1a1f1e;
+      --muted: #6b7a76;
+      --faint: #aebfba;
+      --line: #dce6e2;
+      --green: #1f7256;
+      --green-soft: #e6f3ee;
+      --green-bright: #d4efe6;
+      --radius: 14px;
+      --radius-sm: 8px;
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+
+    input, textarea, button { font: inherit; color: inherit; }
+    button { cursor: pointer; border: 0; background: none; }
+    textarea { resize: none; }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+    }
+
+    /* 记 tab */
+    .tab-capture {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 40px 24px 110px;
+    }
+
+    .tab-capture .date-hint {
+      font-size: 13px;
+      color: var(--green);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .tab-capture h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 28px;
+    }
+
+    .capture-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .capture-area textarea {
+      flex: 1;
+      min-height: 180px;
+      border: 0;
+      background: transparent;
+      font-size: 18px;
+      line-height: 1.7;
+      outline: none;
+      padding: 0;
+      color: var(--ink);
+    }
+
+    .capture-area textarea::placeholder {
+      color: var(--faint);
+    }
+
+    .capture-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      margin-top: 16px;
+    }
+
+    .capture-footer .char-count {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .save-btn {
+      background: var(--green);
+      color: #fff;
+      padding: 10px 28px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+
+    .save-btn:disabled {
+      opacity: 0.4;
+    }
+
+    /* 看 tab */
+    .tab-timeline {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      padding: 24px 20px 110px;
+      overflow-y: auto;
+    }
+
+    .tab-timeline.active { display: flex; }
+    .tab-capture.active { display: flex; }
+    .tab-capture { display: none; }
+
+    .timeline-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .timeline-header h2 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--line);
+      transition: all 0.12s;
+    }
+
+    .filter-btn.active {
+      background: var(--green-soft);
+      color: var(--green);
+      border-color: var(--green);
+    }
+
+    .day-group {
+      margin-bottom: 24px;
+    }
+
+    .day-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding-left: 2px;
+    }
+
+    .record-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px 16px 14px;
+      margin-bottom: 8px;
+      border: 1px solid var(--line);
+      transition: all 0.15s;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .record-card.completed {
+      opacity: 0.6;
+    }
+
+    .record-card.completed .record-text {
+      text-decoration: line-through;
+    }
+
+    .record-check {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      border-radius: 999px;
+      border: 2px solid var(--faint);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      background: transparent;
+    }
+
+    .record-card.completed .record-check {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .record-check svg {
+      width: 12px;
+      height: 12px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      display: none;
+    }
+
+    .record-card.completed .record-check svg {
+      display: block;
+    }
+
+    .record-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .record-text {
+      font-size: 15px;
+      line-height: 1.5;
+      word-wrap: break-word;
+      margin-bottom: 6px;
+    }
+
+    .record-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--faint);
+    }
+
+    .record-delete {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--faint);
+      transition: all 0.12s;
+      opacity: 0;
+      margin-top: -2px;
+    }
+
+    .record-card:hover .record-delete,
+    .record-card:focus-within .record-delete {
+      opacity: 1;
+    }
+
+    .record-delete:hover {
+      background: #fee9e7;
+      color: #c1423a;
+    }
+
+    .record-delete svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--faint);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* 底部导航 */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--line);
+      display: flex;
+    }
+
+    .bottom-nav button {
+      flex: 1;
+      padding: 10px 0 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--faint);
+      transition: color 0.12s;
+    }
+
+    .bottom-nav button.active {
+      color: var(--green);
+    }
+
+    .bottom-nav button svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 84px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a2b26;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    .toast.show { opacity: 1; }
+
+    /* 响应式 */
+    @media (max-width: 520px) {
+      .tab-capture { padding: 28px 18px 100px; }
+      .tab-timeline { padding: 18px 16px 100px; }
+      .capture-area textarea { font-size: 16px; min-height: 140px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- 记 -->
+    <div class="tab-capture active" id="captureTab">
+      <div class="date-hint" id="dateHint"></div>
+      <h1>灵光收集箱</h1>
+      <div class="capture-area">
+        <textarea id="captureInput" placeholder="写下刚想到的东西…" maxlength="500"></textarea>
+        <div class="capture-footer">
+          <span class="char-count" id="charCount">0 / 500</span>
+          <button class="save-btn" id="saveBtn" disabled>保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 看 -->
+    <div class="tab-timeline" id="timelineTab">
+      <div class="timeline-header">
+        <h2>时间线</h2>
+        <div class="filter-group">
+          <button class="filter-btn active" data-filter="all">全部</button>
+          <button class="filter-btn" data-filter="unprocessed">未处理</button>
+          <button class="filter-btn" data-filter="completed">已完成</button>
+        </div>
+      </div>
+      <div id="timelineList"></div>
+    </div>
+
+    <!-- 底部导航 -->
+    <nav class="bottom-nav">
+      <button class="active" data-tab="capture">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        <span>记</span>
+      </button>
+      <button data-tab="timeline">
+        <svg viewBox="0 0 24 24"><path d="M3 12h2M9 12h12M3 6h2M9 6h12M3 18h2M9 18h12"/></svg>
+        <span>看</span>
+      </button>
+    </nav>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'spark-inbox-timeline-v1';
+
+    const seedRecords = [
+      { id: id(), content: '明天起床改论文，先查一下最新的文献', createdAt: Date.now() - 1000*60*30, completedAt: null },
+      { id: id(), content: '基因的自私性——这个角度可以联系到人类社会合作行为', createdAt: Date.now() - 1000*60*120, completedAt: null },
+      { id: id(), content: 'app 不应该只是记录，更应该是想法的孵化器', createdAt: Date.now() - 1000*60*300, completedAt: Date.now() - 1000*60*60 },
+      { id: id(), content: '最近观察到的一个社会现象：人们在公共场合的行为模式变化', createdAt: Date.now() - 1000*60*600, completedAt: null },
+      { id: id(), content: 'Obsidian 里整理笔记时发现知识网络的连接比内容本身更重要', createdAt: Date.now() - 1000*60*1400, completedAt: Date.now() - 1000*60*800 },
+    ];
+
+    let state = loadState();
+    let activeTab = 'capture';
+    let filter = 'all';
+    let toastTimer;
+
+    function id() {
+      return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.records)) return { records: parsed.records };
+        }
+      } catch (e) { console.warn('state corrupted, resetting'); }
+      return { records: seedRecords };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function formatDateShort(ts) {
+      const d = new Date(ts);
+      return d.getMonth()+1 + '/' + d.getDate();
+    }
+
+    function formatDateTime(ts) {
+      return new Intl.DateTimeFormat('zh-CN', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+      }).format(new Date(ts));
+    }
+
+    function todayStr() {
+      const d = new Date();
+      return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+    }
+
+    function yesterdayStr() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+    }
+
+    function dateKey(ts) {
+      const d = new Date(ts);
+      return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+    }
+
+    function dayLabel(key) {
+      const now = todayStr();
+      if (key === now) return '今天';
+      if (key === yesterdayStr()) return '昨天';
+      const d = new Date(key);
+      return d.getMonth()+1 + '月' + d.getDate() + '日';
+    }
+
+    function toggleDone(id) {
+      state.records = state.records.map(r => {
+        if (r.id !== id) return r;
+        if (r.completedAt) return { ...r, completedAt: null };
+        return { ...r, completedAt: Date.now() };
+      });
+      persistAndRender();
+      const r = state.records.find(x => x.id === id);
+      showToast(r.completedAt ? '标记为已完成' : '标记为未处理');
+    }
+
+    function deleteRecord(id, event) {
+      event.stopPropagation();
+      state.records = state.records.filter(r => r.id !== id);
+      persistAndRender();
+      showToast('已删除');
+    }
+
+    function showToast(msg) {
+      clearTimeout(toastTimer);
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+    }
+
+    function persistAndRender() {
+      saveState();
+      render();
+    }
+
+    function getFilteredRecords() {
+      let records = [...state.records].sort((a,b) => b.createdAt - a.createdAt);
+      if (filter === 'unprocessed') records = records.filter(r => !r.completedAt);
+      if (filter === 'completed') records = records.filter(r => r.completedAt);
+      return records;
+    }
+
+    function groupByDay(records) {
+      const groups = {};
+      records.forEach(r => {
+        const key = dateKey(r.createdAt);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+      });
+      // sort keys descending
+      return Object.keys(groups).sort((a,b) => a > b ? -1 : 1).map(key => ({
+        key,
+        label: dayLabel(key),
+        records: groups[key]
+      }));
+    }
+
+    function renderCapture() {
+      const now = new Date();
+      const hint = now.getMonth()+1 + '月' + now.getDate() + '日 · ' + ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'][now.getDay()];
+      document.getElementById('dateHint').textContent = hint;
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('timelineList');
+      const groups = groupByDay(getFilteredRecords());
+
+      if (groups.length === 0) {
+        container.innerHTML = '<div class="empty-state">还没有记录<br/>去"记"页面写下第一条吧</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      groups.forEach(group => {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'day-group';
+        groupEl.innerHTML = `<div class="day-label">${group.label}</div>`;
+
+        group.records.forEach(r => {
+          const card = document.createElement('div');
+          card.className = 'record-card' + (r.completedAt ? ' completed' : '');
+          card.tabIndex = 0;
+
+          const checkBtn = document.createElement('button');
+          checkBtn.className = 'record-check';
+          checkBtn.setAttribute('aria-label', r.completedAt ? '标记为未处理' : '标记为已完成');
+          checkBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+          checkBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleDone(r.id); });
+
+          const body = document.createElement('div');
+          body.className = 'record-body';
+
+          const text = document.createElement('div');
+          text.className = 'record-text';
+          text.textContent = r.content;
+
+          const meta = document.createElement('div');
+          meta.className = 'record-meta';
+          let metaText = '记录 ' + formatDateTime(r.createdAt);
+          if (r.completedAt) metaText += ' · 完成 ' + formatDateTime(r.completedAt);
+          meta.textContent = metaText;
+
+          body.append(text, meta);
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'record-delete';
+          delBtn.setAttribute('aria-label', '删除');
+          delBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+          delBtn.addEventListener('click', (e) => deleteRecord(r.id, e));
+
+          card.append(checkBtn, body, delBtn);
+          groupEl.append(card);
+        });
+
+        container.append(groupEl);
+      });
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.bottom-nav button').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tab);
+      });
+      document.getElementById('captureTab').classList.toggle('active', tab === 'capture');
+      document.getElementById('timelineTab').classList.toggle('active', tab === 'timeline');
+      if (tab === 'timeline') render();
+    }
+
+    function render() {
+      renderCapture();
+      renderTimeline();
+    }
+
+    // --- 事件绑定 ---
+
+    // 底部导航
+    document.querySelectorAll('.bottom-nav button').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // 输入
+    const input = document.getElementById('captureInput');
+    const saveBtn = document.getElementById('saveBtn');
+    const charCount = document.getElementById('charCount');
+
+    input.addEventListener('input', () => {
+      const len = input.value.trim().length;
+      charCount.textContent = len + ' / 500';
+      saveBtn.disabled = len === 0;
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const content = input.value.trim();
+      if (!content) return;
+      state.records.unshift({
+        id: id(),
+        content,
+        createdAt: Date.now(),
+        completedAt: null,
+      });
+      input.value = '';
+      charCount.textContent = '0 / 500';
+      saveBtn.disabled = true;
+      persistAndRender();
+      showToast('已保存');
+    });
+
+    // Ctrl/Cmd+Enter 保存
+    input.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        saveBtn.click();
+      }
+    });
+
+    // 筛选
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filter = btn.dataset.filter;
+        renderTimeline();
+      });
+    });
+
+    render();
+
+    // 如果时间线 tab 有内容，自动聚焦输入
+    input.focus();
+  </script>
+</body>
+</html>

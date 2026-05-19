@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>灵光收集箱 · v2</title>
+  <style>
+    :root {
+      --bg: #f4f7f6;
+      --card: #ffffff;
+      --ink: #1a1f1e;
+      --muted: #6b7a76;
+      --faint: #aebfba;
+      --line: #dce6e2;
+      --green: #1f7256;
+      --green-soft: #e6f3ee;
+      --amber: #9a681f;
+      --amber-soft: #fbefd8;
+      --red: #b44a42;
+      --red-soft: #f9e9e6;
+      --radius: 14px;
+      --radius-sm: 8px;
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    input, textarea, button { font: inherit; color: inherit; }
+    button { border: 0; background: none; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.35; }
+    textarea { resize: none; }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+    }
+
+    /* ---- Capture Tab ---- */
+    .tab-capture {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      padding: 32px 24px 0;
+    }
+    .tab-capture.active { display: flex; }
+
+    .date-hint {
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 650;
+      margin-bottom: 6px;
+    }
+
+    .app-title {
+      font-size: 26px;
+      font-weight: 760;
+      line-height: 1.15;
+      margin-bottom: 18px;
+    }
+
+    .capture-area textarea {
+      width: 100%;
+      min-height: 80px;
+      max-height: 120px;
+      border: 0;
+      outline: none;
+      background: transparent;
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--ink);
+    }
+
+    .capture-area textarea::placeholder { color: var(--faint); }
+
+    /* push everything below textarea toward vertical center */
+    .capture-middle {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .capture-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .char-count {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .save-btn {
+      min-width: 110px;
+      border-radius: 999px;
+      background: var(--green);
+      color: #fff;
+      padding: 13px 36px;
+      font-size: 16px;
+      font-weight: 680;
+    }
+
+    /* Active preview pinned to bottom of capture tab */
+    .active-preview {
+      flex-shrink: 0;
+      border-top: 1px solid var(--line);
+      padding: 14px 0 8px;
+    }
+
+    .active-preview:empty { display: none; }
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .preview-header span:first-child {
+      font-size: 14px;
+      font-weight: 680;
+      color: var(--amber);
+    }
+
+    .preview-count {
+      font-size: 12px;
+      color: var(--faint);
+    }
+
+    .preview-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--amber-soft);
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+
+    .preview-card:active { opacity: 0.7; }
+
+    .preview-dot {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: var(--amber);
+      flex-shrink: 0;
+    }
+
+    .preview-card p {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-more {
+      text-align: center;
+      color: var(--faint);
+      font-size: 12px;
+      padding: 6px 0;
+    }
+
+    /* ---- List Tab ---- */
+    .tab-list {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      padding: 24px 18px 110px;
+      overflow-y: auto;
+    }
+    .tab-list.active { display: flex; }
+
+    .list-header {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .list-header h2 { font-size: 24px; font-weight: 760; }
+
+    .filter-group {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .filter-btn {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      padding: 7px 13px;
+      font-size: 13px;
+      font-weight: 620;
+    }
+
+    .filter-btn.active {
+      border-color: var(--green);
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .day-group { margin-bottom: 22px; }
+
+    .day-label {
+      margin-bottom: 10px;
+      padding-left: 2px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 680;
+    }
+
+    .record-card {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      padding: 15px 14px 13px;
+    }
+
+    .record-card.completed { opacity: 0.65; }
+    .record-card.completed .record-text { text-decoration: line-through; }
+    .record-card.abandoned { opacity: 0.5; }
+    .record-card.abandoned .record-text { text-decoration: line-through; }
+
+    .status-btn {
+      width: 23px; height: 23px;
+      flex: 0 0 23px;
+      display: grid;
+      place-items: center;
+      margin-top: 2px;
+      border: 2px solid var(--faint);
+      border-radius: 999px;
+      color: transparent;
+    }
+
+    .record-card.active .status-btn {
+      border-color: var(--amber);
+      background: var(--amber-soft);
+    }
+    .record-card.active .status-btn::before {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: var(--amber);
+      content: "";
+    }
+
+    .record-card.completed .status-btn {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+    }
+
+    .record-card.abandoned .status-btn {
+      border-color: var(--red);
+      background: var(--red-soft);
+    }
+    .record-card.abandoned .status-btn::before {
+      width: 9px; height: 2px;
+      border-radius: 2px;
+      background: var(--red);
+      content: "";
+    }
+
+    .status-btn svg {
+      display: none;
+      width: 13px; height: 13px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.5;
+    }
+    .record-card.completed .status-btn svg { display: block; }
+
+    .record-body { flex: 1; min-width: 0; }
+
+    .record-text {
+      margin-bottom: 7px;
+      overflow-wrap: anywhere;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .record-meta {
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .record-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 9px;
+    }
+
+    .record-actions button {
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .record-actions button.danger { color: var(--red); }
+    .record-actions button.secondary { color: var(--muted); }
+
+    .record-delete {
+      width: 28px; height: 28px;
+      flex: 0 0 28px;
+      display: grid;
+      place-items: center;
+      margin-top: -2px;
+      border-radius: 999px;
+      color: var(--faint);
+    }
+
+    .record-delete:hover { background: #fee9e7; color: #c1423a; }
+
+    .record-delete svg, .bottom-nav svg {
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .record-delete svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    .empty-state {
+      padding: 62px 20px;
+      color: var(--faint);
+      font-size: 14px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    /* ---- Bottom Nav ---- */
+    .bottom-nav {
+      position: fixed;
+      right: 0; bottom: 0; left: 0;
+      display: flex;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      border-top: 1px solid var(--line);
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+    }
+
+    .bottom-nav button {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 0 12px;
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 680;
+    }
+
+    .bottom-nav button.active { color: var(--green); }
+
+    .bottom-nav svg { width: 22px; height: 22px; stroke-width: 1.8; }
+
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 84px;
+      left: 50%;
+      z-index: 10;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: #1a2b26;
+      color: #fff;
+      padding: 10px 22px;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 560;
+      transition: opacity 0.2s ease;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 520px) {
+      .tab-capture { padding: 24px 18px 0; }
+      .tab-list { padding: 18px 16px 100px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 记 -->
+    <section class="tab-capture active" id="captureTab">
+      <div class="date-hint" id="dateHint"></div>
+      <h1 class="app-title">灵光收集箱</h1>
+
+      <div class="capture-area">
+        <textarea id="captureInput" placeholder="写下刚想到的东西…" maxlength="500"></textarea>
+      </div>
+
+      <!-- 字数统计 + 分隔线 + 保存按钮一起居中 -->
+      <div class="capture-middle">
+        <div class="capture-footer">
+          <span class="char-count" id="charCount">0 / 500</span>
+        </div>
+        <button class="save-btn" id="saveBtn" disabled>保存</button>
+      </div>
+
+      <!-- 底部进行中预览 -->
+      <div class="active-preview" id="activePreview"></div>
+    </section>
+
+    <!-- 看 -->
+    <section class="tab-list" id="listTab">
+      <header class="list-header">
+        <h2>记录</h2>
+        <div class="filter-group" id="filterGroup">
+          <button class="filter-btn active" data-filter="all">全部</button>
+          <button class="filter-btn" data-filter="open">未处理</button>
+          <button class="filter-btn" data-filter="active">进行中</button>
+          <button class="filter-btn" data-filter="completed">已完成</button>
+          <button class="filter-btn" data-filter="abandoned">已放弃</button>
+        </div>
+      </header>
+      <div id="recordList"></div>
+    </section>
+
+    <nav class="bottom-nav">
+      <button class="active" data-tab="capture">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        <span>记</span>
+      </button>
+      <button data-tab="list">
+        <svg viewBox="0 0 24 24"><path d="M3 12h2M9 12h12M3 6h2M9 6h12M3 18h2M9 18h12"/></svg>
+        <span>看</span>
+      </button>
+    </nav>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "spark-inbox-v2";
+
+    // 在顶层捕获 localStorage 是否可用
+    let storageOk = true;
+    try { localStorage.setItem("__test__", "1"); localStorage.removeItem("__test__"); }
+    catch { storageOk = false; }
+
+    const seedRecords = [
+      { id: id(), content: "智能小车：先想清楚循迹和避障第一版怎么取舍",
+        status: "active", createdAt: Date.now() - 1000*60*180, startedAt: Date.now() - 1000*60*90, completedAt: null, abandonedAt: null },
+      { id: id(), content: "HTML视频标签要查 controls、poster、source 三个点",
+        status: "active", createdAt: Date.now() - 1000*60*260, startedAt: Date.now() - 1000*60*30, completedAt: null, abandonedAt: null },
+      { id: id(), content: "酒馆学习可能需要先整理一个最小可开始清单",
+        status: "open", createdAt: Date.now() - 1000*60*620, startedAt: null, completedAt: null, abandonedAt: null },
+      { id: id(), content: "app 不应该只是记录，更应该是想法的暂存入口",
+        status: "completed", createdAt: Date.now() - 1000*60*1400, startedAt: Date.now() - 1000*60*1000, completedAt: Date.now() - 1000*60*620, abandonedAt: null },
+      { id: id(), content: "给收集箱加优先级矩阵——太重了，先不做",
+        status: "abandoned", createdAt: Date.now() - 1000*60*2000, startedAt: null, completedAt: null, abandonedAt: Date.now() - 1000*60*500 },
+      { id: id(), content: "今晚把论文实验部分跑完",
+        status: "active", createdAt: Date.now() - 1000*60*50, startedAt: Date.now() - 1000*60*20, completedAt: null, abandonedAt: null },
+    ];
+
+    let state = loadState();
+    let activeTab = "capture";
+    let filter = "all";
+    let toastTimer;
+
+    const input = document.querySelector("#captureInput");
+    const saveBtn = document.querySelector("#saveBtn");
+    const charCount = document.querySelector("#charCount");
+
+    function id() {
+      return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+    }
+
+    function loadState() {
+      if (!storageOk) return { records: seedRecords };
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return { records: seedRecords };
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.records)) return { records: parsed.records };
+      } catch { /* fall through */ }
+      return { records: seedRecords };
+    }
+
+    function saveState() {
+      if (!storageOk) return;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch {}
+    }
+
+    function persistAndRender() { saveState(); render(); }
+
+    function formatDateTime(ts) {
+      return new Intl.DateTimeFormat("zh-CN", { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" }).format(new Date(ts));
+    }
+
+    function dateKey(ts) {
+      const d = new Date(ts);
+      return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+    }
+
+    function todayKey() { return dateKey(Date.now()); }
+    function yesterdayKey() { const d = new Date(); d.setDate(d.getDate()-1); return dateKey(d); }
+
+    function dayLabel(key) {
+      if (key === todayKey()) return "今天";
+      if (key === yesterdayKey()) return "昨天";
+      const d = new Date(key);
+      return (d.getMonth()+1) + "月" + d.getDate() + "日";
+    }
+
+    function statusLabel(s) { return { open:"未处理", active:"进行中", completed:"已完成", abandoned:"已放弃" }[s]; }
+
+    function addRecord() {
+      const content = input.value.trim();
+      if (!content) return;
+      state.records.unshift({
+        id: id(), content, status: "open",
+        createdAt: Date.now(), startedAt: null, completedAt: null, abandonedAt: null,
+      });
+      input.value = "";
+      updateInputState();
+      persistAndRender();
+      showToast("已保存");
+    }
+
+    function startRecord(id) {
+      const now = Date.now();
+      state.records = state.records.map(r => r.id === id ? { ...r, status:"active", startedAt: r.startedAt || now } : r);
+      persistAndRender(); showToast("已开始");
+    }
+
+    function completeRecord(id) {
+      const now = Date.now();
+      state.records = state.records.map(r => r.id === id ? { ...r, status:"completed", startedAt: r.startedAt || now, completedAt: now } : r);
+      persistAndRender(); showToast("已完成");
+    }
+
+    function abandonRecord(id) {
+      state.records = state.records.map(r => r.id === id ? { ...r, status:"abandoned", abandonedAt: Date.now() } : r);
+      persistAndRender(); showToast("已放弃");
+    }
+
+    function reopenRecord(id) {
+      state.records = state.records.map(r => r.id === id ? { ...r, status:"open", startedAt: null, completedAt: null, abandonedAt: null } : r);
+      persistAndRender(); showToast("已恢复");
+    }
+
+    function pauseRecord(id) {
+      state.records = state.records.map(r => r.id === id ? { ...r, status:"open" } : r);
+      persistAndRender(); showToast("已放回未处理");
+    }
+
+    function deleteRecord(id) {
+      state.records = state.records.filter(r => r.id !== id);
+      persistAndRender(); showToast("已删除");
+    }
+
+    function cycleRecord(r) {
+      if (r.status === "open") { startRecord(r.id); return; }
+      if (r.status === "active") { completeRecord(r.id); return; }
+      reopenRecord(r.id);
+    }
+
+    function filteredRecords() {
+      return [...state.records]
+        .filter(r => filter === "all" || r.status === filter)
+        .sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    function groupedRecords(records) {
+      const groups = new Map();
+      records.forEach(r => {
+        const key = dateKey(r.createdAt);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(r);
+      });
+      return [...groups.entries()].sort(([a],[b]) => a > b ? -1 : 1).map(([key, records]) => ({ key, records }));
+    }
+
+    function activeRecords() {
+      return state.records.filter(r => r.status === "active").sort((a, b) => (b.startedAt || b.createdAt) - (a.startedAt || a.createdAt));
+    }
+
+    // ---- Render ----
+
+    function renderCapture() {
+      const now = new Date();
+      const wd = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][now.getDay()];
+      const hint = document.querySelector("#dateHint");
+      if (hint) hint.textContent = (now.getMonth()+1) + "月" + now.getDate() + "日 · " + wd;
+
+      const preview = document.querySelector("#activePreview");
+      if (!preview) return;
+
+      const active = activeRecords();
+      if (active.length === 0) {
+        preview.replaceChildren();
+        return;
+      }
+
+      // Limit to what fits: 3 on tall screens, 2 on short
+      const maxShow = window.innerHeight < 700 ? 2 : 3;
+      const show = active.slice(0, maxShow);
+
+      const header = document.createElement("div");
+      header.className = "preview-header";
+      header.innerHTML = '<span>进行中</span><span class="preview-count">' + (show.length < active.length ? "最新" + show.length + "条" : active.length + "条") + '</span>';
+
+      const list = document.createElement("div");
+      show.forEach(r => {
+        const card = document.createElement("div");
+        card.className = "preview-card";
+        card.innerHTML = '<div class="preview-dot"></div><p>' + escHtml(r.content) + '</p>';
+        card.addEventListener("click", (e) => { e.stopPropagation(); completeRecord(r.id); });
+        list.append(card);
+      });
+
+      if (show.length < active.length) {
+        const more = document.createElement("div");
+        more.className = "preview-more";
+        more.textContent = "还有 " + (active.length - show.length) + " 条进行中";
+        list.append(more);
+      }
+
+      preview.replaceChildren(header, list);
+    }
+
+    function renderList() {
+      const groups = groupedRecords(filteredRecords());
+      const container = document.querySelector("#recordList");
+      if (!container) return;
+      container.replaceChildren();
+
+      if (groups.length === 0) {
+        container.innerHTML = '<div class="empty-state">还没有记录<br />去"记"页面写下第一条</div>';
+        return;
+      }
+
+      groups.forEach(group => {
+        const section = document.createElement("div");
+        section.className = "day-group";
+        section.innerHTML = '<div class="day-label">' + dayLabel(group.key) + '</div>';
+        group.records.forEach(r => section.append(createCard(r)));
+        container.append(section);
+      });
+    }
+
+    function createCard(record) {
+      const card = document.createElement("div");
+      card.className = "record-card " + record.status;
+
+      const sb = document.createElement("button");
+      sb.className = "status-btn";
+      sb.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+      sb.addEventListener("click", () => cycleRecord(record));
+
+      const body = document.createElement("div");
+      body.className = "record-body";
+      body.innerHTML = '<div class="record-text">' + escHtml(record.content) + '</div>' +
+        '<div class="record-meta">' + escHtml(metaText(record)) + '</div>';
+
+      const actions = document.createElement("div");
+      actions.className = "record-actions";
+      appendActions(actions, record);
+      body.append(actions);
+
+      const del = document.createElement("button");
+      del.className = "record-delete";
+      del.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+      del.addEventListener("click", (e) => { e.stopPropagation(); deleteRecord(record.id); });
+
+      card.append(sb, body, del);
+      return card;
+    }
+
+    function appendActions(container, r) {
+      switch (r.status) {
+        case "open":
+          container.append(actBtn("开始", () => startRecord(r.id)));
+          container.append(actBtn("放弃", () => abandonRecord(r.id), "danger"));
+          break;
+        case "active":
+          container.append(actBtn("完成", () => completeRecord(r.id)));
+          container.append(actBtn("放回未处理", () => pauseRecord(r.id), "secondary"));
+          container.append(actBtn("放弃", () => abandonRecord(r.id), "danger"));
+          break;
+        case "completed":
+          container.append(actBtn("重新打开", () => reopenRecord(r.id)));
+          break;
+        case "abandoned":
+          container.append(actBtn("重新打开", () => reopenRecord(r.id), "secondary"));
+          break;
+      }
+    }
+
+    function actBtn(label, onClick, cls) {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      if (cls) btn.className = cls;
+      btn.addEventListener("click", onClick);
+      return btn;
+    }
+
+    function metaText(r) {
+      const parts = [statusLabel(r.status) + " · 记录 " + formatDateTime(r.createdAt)];
+      if (r.startedAt) parts.push("开始 " + formatDateTime(r.startedAt));
+      if (r.completedAt) parts.push("完成 " + formatDateTime(r.completedAt));
+      if (r.abandonedAt) parts.push("放弃 " + formatDateTime(r.abandonedAt));
+      return parts.join(" · ");
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll(".bottom-nav button").forEach(b =>
+        b.classList.toggle("active", b.dataset.tab === tab));
+      const ct = document.querySelector("#captureTab");
+      const lt = document.querySelector("#listTab");
+      if (ct) ct.classList.toggle("active", tab === "capture");
+      if (lt) lt.classList.toggle("active", tab === "list");
+      render();
+    }
+
+    function updateInputState() {
+      const len = input.value.trim().length;
+      charCount.textContent = len + " / 500";
+      saveBtn.disabled = len === 0;
+    }
+
+    let toastTimerId;
+    function showToast(msg) {
+      clearTimeout(toastTimerId);
+      const el = document.querySelector("#toast");
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add("show");
+      toastTimerId = setTimeout(() => el.classList.remove("show"), 1600);
+    }
+
+    function escHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function render() {
+      renderCapture();
+      renderList();
+    }
+
+    // ---- Events ----
+
+    document.querySelectorAll(".bottom-nav button").forEach(b => {
+      b.addEventListener("click", () => switchTab(b.dataset.tab));
+    });
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        filter = btn.dataset.filter;
+        renderList();
+      });
+    });
+
+    input.addEventListener("input", updateInputState);
+    input.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") addRecord();
+    });
+    saveBtn.addEventListener("click", addRecord);
+
+    render();
+    input.focus();
+  </script>
+</body>
+</html>
