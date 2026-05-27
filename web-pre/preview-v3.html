@@ -82,6 +82,35 @@
       .day-group { margin-bottom:22px; }
       .day-label { margin-bottom:10px; padding-left:2px; color:var(--muted); font-size:14px; font-weight:680; }
 
+      .month-group { margin-bottom:24px; }
+      .month-header {
+        display:flex; align-items:center; justify-content:space-between;
+        margin-bottom:12px; padding:10px 12px; border-radius:var(--radius);
+        border:1px solid var(--line); background:var(--card-soft);
+        cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+        transition:background 0.15s;
+      }
+      .month-header:hover { background:var(--card); }
+      .month-header:active { background:var(--line-soft); }
+      .month-header-left { display:flex; align-items:center; gap:10px; }
+      .month-title { color:var(--ink); font-size:15px; font-weight:700; }
+      .month-count { color:var(--faint); font-size:12px; font-weight:500; }
+      .month-status-dots { display:flex; gap:5px; align-items:center; }
+      .month-status-dot { width:6px; height:6px; border-radius:999px; }
+      .month-status-dot.open { background:var(--faint); }
+      .month-status-dot.active { background:var(--amber); }
+      .month-status-dot.completed { background:var(--green); }
+      .month-status-dot.abandoned { background:var(--red); }
+      .month-chevron {
+        width:18px; height:18px; color:var(--faint); flex-shrink:0;
+        transition:transform 0.2s ease; display:flex; align-items:center; justify-content:center;
+      }
+      .month-chevron svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+      .month-group.collapsed .month-chevron { transform:rotate(-90deg); }
+      .month-body { overflow:hidden; transition:max-height 0.3s ease, opacity 0.2s ease; }
+      .month-group.collapsed .month-body { max-height:0!important; opacity:0; }
+      .month-group:not(.collapsed) .month-body { opacity:1; }
+
       .record-card { display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; border:1px solid var(--line); border-radius:var(--radius); background:var(--card); padding:15px 14px 13px; }
       .record-card.completed { opacity:0.72; }
       .record-card.completed .record-text { text-decoration:line-through; }
@@ -208,14 +237,54 @@
     <script>
       const STORAGE_KEY = "spark-inbox-v3";
 
+      function daysAgo(n, h, m) {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        d.setHours(h != null ? h : 10 + Math.floor(Math.random() * 8), m != null ? m : Math.floor(Math.random() * 60), 0, 0);
+        return d.getTime();
+      }
+
       const seedRecords = [
-        { id:id(), content:"智能小车：先想清楚循迹和避障第一版怎么取舍", type:"task", status:"active", createdAt:Date.now()-1000*60*180, startedAt:Date.now()-1000*60*90, completedAt:null, abandonedAt:null, archivedAt:null },
-        { id:id(), content:"HTML视频标签要查 controls、poster、source 三个点", type:"task", status:"open", createdAt:Date.now()-1000*60*260, startedAt:null, completedAt:null, abandonedAt:null, archivedAt:null },
-        { id:id(), content:"酒馆学习可能需要先整理一个最小可开始清单", type:"task", status:"open", createdAt:Date.now()-1000*60*620, startedAt:null, completedAt:null, abandonedAt:null, archivedAt:null },
-        { id:id(), content:"app 不应该只是记录，更应该是想法的暂存入口", type:"idea", status:"archived", createdAt:Date.now()-1000*60*1400, archivedAt:Date.now()-1000*60*620 },
-        { id:id(), content:"先不做复杂优先级矩阵，第一版会太重", type:"task", status:"abandoned", createdAt:Date.now()-1000*60*1800, startedAt:null, completedAt:null, abandonedAt:Date.now()-1000*60*1200, archivedAt:null },
-        { id:id(), content:"基因的自私性——这个角度可以联系到人类社会合作行为", type:"idea", status:"unprocessed", createdAt:Date.now()-1000*60*300, archivedAt:null },
-        { id:id(), content:"Obsidian 里整理笔记时发现知识网络的连接比内容本身更重要", type:"idea", status:"archived", createdAt:Date.now()-1000*60*2600, archivedAt:Date.now()-1000*60*1800 },
+        { id:id(), content:"智能小车：先想清楚循迹和避障第一版怎么取舍", type:"task", status:"active", createdAt:daysAgo(0,10), startedAt:daysAgo(0,10), completedAt:null, abandonedAt:null },
+        { id:id(), content:"HTML视频标签要查 controls、poster、source 三个点", type:"task", status:"open", createdAt:daysAgo(0,14), startedAt:null, completedAt:null, abandonedAt:null },
+        { id:id(), content:"基因的自私性——这个角度可以联系到人类社会合作行为", type:"idea", status:"unprocessed", createdAt:daysAgo(0,16) },
+        { id:id(), content:"酒馆学习可能需要先整理一个最小可开始清单", type:"task", status:"open", createdAt:daysAgo(1,9), startedAt:null, completedAt:null, abandonedAt:null },
+        { id:id(), content:"整理一下本周的待办事项", type:"task", status:"completed", createdAt:daysAgo(1,11), startedAt:daysAgo(1,11), completedAt:daysAgo(0,10), abandonedAt:null },
+        { id:id(), content:"Obsidian 里整理笔记时发现知识网络的连接比内容本身更重要", type:"idea", status:"archived", createdAt:daysAgo(1,15), archivedAt:daysAgo(0,12) },
+        { id:id(), content:"app 不应该只是记录，更应该是想法的暂存入口", type:"idea", status:"archived", createdAt:daysAgo(2,10), archivedAt:daysAgo(1,14) },
+        { id:id(), content:"研究一下 Capacitor 打包 Android 的流程", type:"task", status:"active", createdAt:daysAgo(2,14), startedAt:daysAgo(2,14), completedAt:null, abandonedAt:null },
+        { id:id(), content:"先不做复杂优先级矩阵，第一版会太重", type:"task", status:"abandoned", createdAt:daysAgo(3,9), startedAt:null, completedAt:null, abandonedAt:daysAgo(2,16) },
+        { id:id(), content:"SharedPreferences 存储方案确认", type:"task", status:"completed", createdAt:daysAgo(3,13), startedAt:daysAgo(3,13), completedAt:daysAgo(3,17), abandonedAt:null },
+        { id:id(), content:"人脑的工作记忆只能同时处理 4 个项目，这个限制影响了所有 UI 设计", type:"idea", status:"unprocessed", createdAt:daysAgo(3,16) },
+        { id:id(), content:"底部导航从两 tab 改成三 tab 的方案", type:"task", status:"completed", createdAt:daysAgo(4,10), startedAt:daysAgo(4,10), completedAt:daysAgo(3,15), abandonedAt:null },
+        { id:id(), content:"灵感分类功能：task 和 idea 两种类型", type:"task", status:"completed", createdAt:daysAgo(5,11), startedAt:daysAgo(5,11), completedAt:daysAgo(4,14), abandonedAt:null },
+        { id:id(), content:"看下 Jetpack Compose 的基础组件", type:"task", status:"open", createdAt:daysAgo(5,15), startedAt:null, completedAt:null, abandonedAt:null },
+        { id:id(), content:"「反脆弱」的核心观点：从波动中获益的系统设计思路", type:"idea", status:"unprocessed", createdAt:daysAgo(5,18) },
+        { id:id(), content:"图标设计稿提取脚本优化", type:"task", status:"completed", createdAt:daysAgo(6,10), startedAt:daysAgo(6,10), completedAt:daysAgo(5,16), abandonedAt:null },
+        { id:id(), content:"Android 手动编译打包流程梳理", type:"task", status:"completed", createdAt:daysAgo(7,9), startedAt:daysAgo(7,9), completedAt:daysAgo(6,12), abandonedAt:null },
+        { id:id(), content:"确认 minSdk 和 targetSdk 版本", type:"task", status:"completed", createdAt:daysAgo(7,14), startedAt:daysAgo(7,14), completedAt:daysAgo(7,17), abandonedAt:null },
+        { id:id(), content:"研究 aapt2 和 d8 的命令行用法", type:"task", status:"completed", createdAt:daysAgo(8,11), startedAt:daysAgo(8,11), completedAt:daysAgo(7,13), abandonedAt:null },
+        { id:id(), content:"深色主题配色方案确定", type:"task", status:"completed", createdAt:daysAgo(9,10), startedAt:daysAgo(9,10), completedAt:daysAgo(8,15), abandonedAt:null },
+        { id:id(), content:"移动端适配 max-width 480px 方案", type:"task", status:"completed", createdAt:daysAgo(9,16), startedAt:daysAgo(9,16), completedAt:daysAgo(9,18), abandonedAt:null },
+        { id:id(), content:"状态流转机制设计：open → active → completed", type:"task", status:"completed", createdAt:daysAgo(10,9), startedAt:daysAgo(10,9), completedAt:daysAgo(9,14), abandonedAt:null },
+        { id:id(), content:"localStorage 数据结构定义", type:"task", status:"completed", createdAt:daysAgo(11,11), startedAt:daysAgo(11,11), completedAt:daysAgo(10,13), abandonedAt:null },
+        { id:id(), content:"看看有没有现成的轻量级状态管理方案", type:"task", status:"abandoned", createdAt:daysAgo(11,15), startedAt:null, completedAt:null, abandonedAt:daysAgo(10,10) },
+        { id:id(), content:"首页设计：只保留日期和输入区", type:"task", status:"completed", createdAt:daysAgo(12,10), startedAt:daysAgo(12,10), completedAt:daysAgo(11,16), abandonedAt:null },
+        { id:id(), content:"项目初始化，确定技术栈", type:"task", status:"completed", createdAt:daysAgo(13,9), startedAt:daysAgo(13,9), completedAt:daysAgo(12,12), abandonedAt:null },
+        { id:id(), content:"调研几个备忘录 app 的交互设计", type:"task", status:"completed", createdAt:daysAgo(13,14), startedAt:daysAgo(13,14), completedAt:daysAgo(13,18), abandonedAt:null },
+        { id:id(), content:"确定 app 名称和定位", type:"task", status:"completed", createdAt:daysAgo(14,10), startedAt:daysAgo(14,10), completedAt:daysAgo(13,12), abandonedAt:null },
+        { id:id(), content:"记录删除的二次确认机制", type:"task", status:"completed", createdAt:daysAgo(16,11), startedAt:daysAgo(16,11), completedAt:daysAgo(15,15), abandonedAt:null },
+        { id:id(), content:"Toast 提示组件实现", type:"task", status:"completed", createdAt:daysAgo(18,9), startedAt:daysAgo(18,9), completedAt:daysAgo(17,14), abandonedAt:null },
+        { id:id(), content:"搜索功能的实时过滤逻辑", type:"task", status:"completed", createdAt:daysAgo(18,16), startedAt:daysAgo(18,16), completedAt:daysAgo(18,18), abandonedAt:null },
+        { id:id(), content:"记录卡片的状态圆圈设计", type:"task", status:"completed", createdAt:daysAgo(20,10), startedAt:daysAgo(20,10), completedAt:daysAgo(19,13), abandonedAt:null },
+        { id:id(), content:"日期分组显示逻辑", type:"task", status:"completed", createdAt:daysAgo(22,14), startedAt:daysAgo(22,14), completedAt:daysAgo(21,16), abandonedAt:null },
+        { id:id(), content:"初始原型搭建", type:"task", status:"completed", createdAt:daysAgo(25,9), startedAt:daysAgo(25,9), completedAt:daysAgo(23,18), abandonedAt:null },
+        { id:id(), content:"Cursor 编辑器试用体验不错，AI 补全很准", type:"idea", status:"archived", createdAt:daysAgo(30,14), archivedAt:daysAgo(28,10) },
+        { id:id(), content:"了解一下 RAG 的基本原理", type:"idea", status:"unprocessed", createdAt:daysAgo(35,11) },
+        { id:id(), content:"Flutter 跨平台方案调研", type:"task", status:"completed", createdAt:daysAgo(40,9), startedAt:daysAgo(40,9), completedAt:daysAgo(38,16), abandonedAt:null },
+        { id:id(), content:"阅读《原子习惯》前两章", type:"task", status:"abandoned", createdAt:daysAgo(45,15), startedAt:null, completedAt:null, abandonedAt:daysAgo(42,10) },
+        { id:id(), content:"Markdown 渲染引擎选型", type:"task", status:"completed", createdAt:daysAgo(50,10), startedAt:daysAgo(50,10), completedAt:daysAgo(48,14), abandonedAt:null },
+        { id:id(), content:"低代码平台的局限性分析", type:"idea", status:"archived", createdAt:daysAgo(55,16), archivedAt:daysAgo(52,11) },
       ];
 
       let state = loadState();
@@ -335,6 +404,20 @@
         return [...m.entries()].sort(([a],[b])=>a>b?-1:1).map(([k,rs])=>({key:k,records:rs}));
       }
 
+      const RECENT_DAYS = 7;
+      const monthCollapsed = new Set();
+      function monthKey(ts) { const d=new Date(ts); return d.getFullYear()+"-"+(d.getMonth()+1); }
+      function isRecent(dk) { const now=new Date(),today=new Date(now.getFullYear(),now.getMonth(),now.getDate()),d=new Date(dk); return Math.floor((today-d)/(1000*60*60*24))<RECENT_DAYS; }
+      function monthLabel(mk) { const [y,m]=mk.split("-"); return y+"年"+parseInt(m)+"月"; }
+      function groupByMonth(records) {
+        const m = new Map();
+        records.forEach(r=>{ const k=monthKey(r.createdAt); if(!m.has(k)) m.set(k,[]); m.get(k).push(r); });
+        return [...m.entries()].sort(([a],[b])=>a>b?-1:1).map(([k,rs])=>({key:k,records:rs}));
+      }
+      function getStatusSummary(records) {
+        const c={open:0,active:0,completed:0,abandoned:0}; records.forEach(r=>c[r.status]++); return c;
+      }
+
       function renderCapture() {
         const n=new Date(); const w=["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][n.getDay()];
         document.querySelector("#dateHint").textContent = (n.getMonth()+1)+"月"+n.getDate()+"日 · "+w;
@@ -370,20 +453,52 @@
       }
 
       function renderTasks() {
-        const groups = groupByDay(filteredTasks());
+        const allFiltered = filteredTasks();
         taskList.replaceChildren();
-        if (groups.length===0) {
+        if (allFiltered.length===0) {
           const e=document.createElement("div"); e.className="empty-state";
           e.innerHTML = taskSearch.value.trim() ? "没有找到相关任务" : "还没有任务<br />去「记」页面写下第一条";
           taskList.append(e); return;
         }
-        groups.forEach(g=>{
-          const sec=document.createElement("section"); sec.className="day-group";
-          const l=document.createElement("div"); l.className="day-label"; l.textContent=dayLabel(g.key);
-          sec.append(l);
-          g.records.forEach(r=>sec.append(createTaskCard(r)));
-          taskList.append(sec);
-        });
+
+        const recent=[], old=[];
+        allFiltered.forEach(r => { if(isRecent(dateKey(r.createdAt))) recent.push(r); else old.push(r); });
+
+        if (recent.length>0) {
+          groupByDay(recent).forEach(g=>{
+            const sec=document.createElement("section"); sec.className="day-group";
+            const l=document.createElement("div"); l.className="day-label"; l.textContent=dayLabel(g.key);
+            sec.append(l); g.records.forEach(r=>sec.append(createTaskCard(r))); taskList.append(sec);
+          });
+        }
+
+        if (old.length>0) {
+          groupByMonth(old).forEach(mg=>{
+            const collapsed=monthCollapsed.has(mg.key);
+            const summary=getStatusSummary(mg.records);
+            const sec=document.createElement("section"); sec.className="month-group"+(collapsed?" collapsed":"");
+            const header=document.createElement("div"); header.className="month-header";
+            header.addEventListener("click",()=>{ if(monthCollapsed.has(mg.key)) monthCollapsed.delete(mg.key); else monthCollapsed.add(mg.key); renderTasks(); });
+            const hl=document.createElement("div"); hl.className="month-header-left";
+            const t=document.createElement("span"); t.className="month-title"; t.textContent=monthLabel(mg.key);
+            const c=document.createElement("span"); c.className="month-count"; c.textContent=mg.records.length+"条";
+            hl.append(t,c);
+            const dots=document.createElement("div"); dots.className="month-status-dots";
+            if(summary.open>0){const d=document.createElement("div");d.className="month-status-dot open";d.title=summary.open+"条未处理";dots.append(d);}
+            if(summary.active>0){const d=document.createElement("div");d.className="month-status-dot active";d.title=summary.active+"条进行中";dots.append(d);}
+            if(summary.completed>0){const d=document.createElement("div");d.className="month-status-dot completed";d.title=summary.completed+"条已完成";dots.append(d);}
+            const chev=document.createElement("div"); chev.className="month-chevron"; chev.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+            header.append(hl,dots,chev);
+            const body=document.createElement("div"); body.className="month-body";
+            groupByDay(mg.records).forEach(dg=>{
+              const ds=document.createElement("section"); ds.className="day-group";
+              const l=document.createElement("div"); l.className="day-label"; l.textContent=dayLabel(dg.key);
+              ds.append(l); dg.records.forEach(r=>ds.append(createTaskCard(r))); body.append(ds);
+            });
+            sec.append(header,body); taskList.append(sec);
+            if(!collapsed) requestAnimationFrame(()=>{body.style.maxHeight=body.scrollHeight+"px";});
+          });
+        }
       }
 
       function taskMeta(rec) {
@@ -415,20 +530,52 @@
       }
 
       function renderIdeas() {
-        const groups = groupByDay(filteredIdeas());
+        const allFiltered = filteredIdeas();
         ideaList.replaceChildren();
-        if (groups.length===0) {
+        if (allFiltered.length===0) {
           const e=document.createElement("div"); e.className="empty-state";
           e.innerHTML = ideaSearch.value.trim() ? "没有找到相关灵感" : "还没有灵感<br />去「记」页面写下第一条";
           ideaList.append(e); return;
         }
-        groups.forEach(g=>{
-          const sec=document.createElement("section"); sec.className="day-group";
-          const l=document.createElement("div"); l.className="day-label"; l.textContent=dayLabel(g.key);
-          sec.append(l);
-          g.records.forEach(r=>sec.append(createIdeaCard(r)));
-          ideaList.append(sec);
-        });
+
+        const recent=[], old=[];
+        allFiltered.forEach(r => { if(isRecent(dateKey(r.createdAt))) recent.push(r); else old.push(r); });
+
+        if (recent.length>0) {
+          groupByDay(recent).forEach(g=>{
+            const sec=document.createElement("section"); sec.className="day-group";
+            const l=document.createElement("div"); l.className="day-label"; l.textContent=dayLabel(g.key);
+            sec.append(l); g.records.forEach(r=>sec.append(createIdeaCard(r))); ideaList.append(sec);
+          });
+        }
+
+        if (old.length>0) {
+          groupByMonth(old).forEach(mg=>{
+            const collapsed=monthCollapsed.has(mg.key);
+            const unprocCount=mg.records.filter(r=>r.status==="unprocessed").length;
+            const archCount=mg.records.filter(r=>r.status==="archived").length;
+            const sec=document.createElement("section"); sec.className="month-group"+(collapsed?" collapsed":"");
+            const header=document.createElement("div"); header.className="month-header";
+            header.addEventListener("click",()=>{ if(monthCollapsed.has(mg.key)) monthCollapsed.delete(mg.key); else monthCollapsed.add(mg.key); renderIdeas(); });
+            const hl=document.createElement("div"); hl.className="month-header-left";
+            const t=document.createElement("span"); t.className="month-title"; t.textContent=monthLabel(mg.key);
+            const c=document.createElement("span"); c.className="month-count"; c.textContent=mg.records.length+"条";
+            hl.append(t,c);
+            const dots=document.createElement("div"); dots.className="month-status-dots";
+            if(unprocCount>0){const d=document.createElement("div");d.className="month-status-dot open";d.title=unprocCount+"条未处理";dots.append(d);}
+            if(archCount>0){const d=document.createElement("div");d.className="month-status-dot completed";d.title=archCount+"条已整理";dots.append(d);}
+            const chev=document.createElement("div"); chev.className="month-chevron"; chev.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+            header.append(hl,dots,chev);
+            const body=document.createElement("div"); body.className="month-body";
+            groupByDay(mg.records).forEach(dg=>{
+              const ds=document.createElement("section"); ds.className="day-group";
+              const l=document.createElement("div"); l.className="day-label"; l.textContent=dayLabel(dg.key);
+              ds.append(l); dg.records.forEach(r=>ds.append(createIdeaCard(r))); body.append(ds);
+            });
+            sec.append(header,body); ideaList.append(sec);
+            if(!collapsed) requestAnimationFrame(()=>{body.style.maxHeight=body.scrollHeight+"px";});
+          });
+        }
       }
 
       function createIdeaCard(rec) {

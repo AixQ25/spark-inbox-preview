@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Spark - 折叠日期原型</title>
+    <style>
+      :root {
+        --bg: #0d1110;
+        --app: #101513;
+        --card: #171d1a;
+        --card-soft: #131916;
+        --ink: #edf7f2;
+        --muted: #8fa099;
+        --faint: #586862;
+        --line: #26312c;
+        --line-soft: #1d2622;
+        --green: #56c997;
+        --green-strong: #7be0b3;
+        --green-soft: rgba(86, 201, 151, 0.13);
+        --amber: #dca247;
+        --amber-soft: rgba(220, 162, 71, 0.13);
+        --red: #dc6b61;
+        --red-soft: rgba(220, 107, 97, 0.13);
+        --radius: 14px;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+          system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        background: #090d0b;
+        color: var(--ink);
+      }
+
+      input, textarea, button {
+        font: inherit;
+        color: inherit;
+      }
+
+      button {
+        border: 0;
+        background: none;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      textarea { resize: none; }
+
+      .app {
+        width: 100%;
+        max-width: 480px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--app);
+        position: relative;
+      }
+
+      .tab-capture, .tab-list {
+        flex: 1;
+        display: none;
+        flex-direction: column;
+        padding-bottom: 104px;
+      }
+
+      .tab-capture.active, .tab-list.active {
+        display: flex;
+      }
+
+      .tab-capture {
+        height: 100vh;
+        overflow: hidden;
+        padding: 34px 24px 92px;
+      }
+
+      .date-hint {
+        margin-bottom: 30px;
+        color: var(--green-strong);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .capture-area {
+        flex: 0 0 44vh;
+        display: flex;
+        flex-direction: column;
+        min-height: 250px;
+      }
+
+      .capture-area textarea {
+        flex: 1;
+        min-height: 180px;
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: var(--ink);
+        font-size: 18px;
+        line-height: 1.7;
+        caret-color: var(--green);
+      }
+
+      .capture-area textarea::placeholder {
+        color: var(--faint);
+      }
+
+      .capture-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+      }
+
+      .char-count {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .save-btn {
+        min-width: 112px;
+        border-radius: 999px;
+        background: var(--green);
+        color: #07100c;
+        padding: 12px 28px;
+        font-size: 15px;
+        font-weight: 760;
+      }
+
+      .save-btn:disabled {
+        background: #213029;
+        color: #6f837a;
+        opacity: 1;
+      }
+
+      .home-active {
+        min-height: 0;
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        padding-top: 18px;
+      }
+
+      .home-active-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .home-active-header h2 {
+        font-size: 16px;
+        line-height: 1.2;
+        font-weight: 760;
+      }
+
+      .home-active-header button {
+        color: var(--green-strong);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .home-active-list {
+        display: grid;
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .home-task {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+        padding: 11px 12px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+      }
+
+      .home-task.active .status-btn {
+        border-color: var(--amber);
+        background: var(--amber-soft);
+      }
+
+      .home-task.active .status-btn::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--amber);
+        content: "";
+      }
+
+      .home-task-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .home-task-title {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        font-size: 14px;
+        line-height: 1.45;
+        font-weight: 620;
+        color: var(--ink);
+      }
+
+      .home-task-meta {
+        margin-top: 5px;
+        color: var(--faint);
+        font-size: 12px;
+      }
+
+      .home-task-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+      }
+
+      .home-task-actions button {
+        color: var(--green-strong);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .home-task-actions button.secondary {
+        color: var(--muted);
+      }
+
+      .home-more {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .tab-list {
+        padding: 28px 18px 110px;
+        overflow-y: auto;
+      }
+
+      .list-header {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .list-header h2 {
+        font-size: 24px;
+        line-height: 1.18;
+        font-weight: 760;
+        color: var(--ink);
+      }
+
+      .search-box {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--ink);
+        outline: none;
+        padding: 11px 15px;
+        font-size: 15px;
+      }
+
+      .search-box::placeholder {
+        color: var(--faint);
+      }
+
+      .search-box:focus {
+        border-color: var(--green);
+        box-shadow: 0 0 0 3px rgba(86, 201, 151, 0.1);
+      }
+
+      .filter-group {
+        display: flex;
+        gap: 7px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .filter-btn {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--muted);
+        padding: 7px 13px;
+        font-size: 13px;
+        font-weight: 620;
+      }
+
+      .filter-btn.active {
+        border-color: var(--green);
+        background: var(--green-soft);
+        color: var(--green-strong);
+      }
+
+      /* ========== Collapsible Day Groups ========== */
+      .day-group {
+        margin-bottom: 22px;
+      }
+
+      .day-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding: 6px 2px;
+        border-radius: 8px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.15s;
+      }
+
+      .day-header:hover {
+        background: var(--line-soft);
+      }
+
+      .day-header:active {
+        background: var(--line);
+      }
+
+      .day-header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .day-label {
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 680;
+      }
+
+      .day-count {
+        color: var(--faint);
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .day-status-summary {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+      }
+
+      .status-dot.open { background: var(--faint); }
+      .status-dot.active { background: var(--amber); }
+      .status-dot.completed { background: var(--green); }
+      .status-dot.abandoned { background: var(--red); }
+
+      .day-chevron {
+        width: 16px;
+        height: 16px;
+        color: var(--faint);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+      }
+
+      .day-group.collapsed .day-chevron {
+        transform: rotate(-90deg);
+      }
+
+      .day-cards {
+        overflow: hidden;
+        transition: max-height 0.25s ease, opacity 0.2s ease;
+      }
+
+      .day-group.collapsed .day-cards {
+        max-height: 0 !important;
+        opacity: 0;
+      }
+
+      .day-group:not(.collapsed) .day-cards {
+        opacity: 1;
+      }
+
+      /* ========== End Collapsible ========== */
+
+      .record-card {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 8px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--card);
+        padding: 15px 14px 13px;
+      }
+
+      .record-card.completed { opacity: 0.72; }
+      .record-card.completed .record-text { text-decoration: line-through; }
+      .record-card.abandoned { opacity: 0.64; }
+
+      .status-btn {
+        width: 23px;
+        height: 23px;
+        flex: 0 0 23px;
+        display: grid;
+        place-items: center;
+        margin-top: 2px;
+        border: 2px solid var(--faint);
+        border-radius: 999px;
+        color: transparent;
+      }
+
+      .record-card.active .status-btn {
+        border-color: var(--amber);
+        background: var(--amber-soft);
+      }
+
+      .record-card.active .status-btn::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--amber);
+        content: "";
+      }
+
+      .record-card.completed .status-btn {
+        border-color: var(--green);
+        background: var(--green);
+        color: #07100c;
+      }
+
+      .record-card.abandoned .status-btn {
+        border-color: var(--red);
+        background: var(--red-soft);
+      }
+
+      .record-card.abandoned .status-btn::before {
+        width: 9px;
+        height: 2px;
+        border-radius: 999px;
+        background: var(--red);
+        content: "";
+      }
+
+      .status-btn svg {
+        display: none;
+        width: 13px;
+        height: 13px;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2.5;
+      }
+
+      .record-card.completed .status-btn svg { display: block; }
+
+      .record-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .record-text {
+        margin-bottom: 7px;
+        overflow-wrap: anywhere;
+        font-size: 15px;
+        line-height: 1.5;
+        color: var(--ink);
+      }
+
+      .record-meta {
+        color: var(--faint);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .record-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 9px;
+      }
+
+      .record-actions button {
+        color: var(--green-strong);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .record-actions button.secondary { color: var(--muted); }
+      .record-actions button.danger { color: var(--red); }
+
+      .record-delete {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+        display: grid;
+        place-items: center;
+        margin-top: -2px;
+        border-radius: 999px;
+        color: var(--faint);
+      }
+
+      .record-delete:hover {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+
+      .record-delete svg, .bottom-nav svg {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .record-delete svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.8;
+      }
+
+      .empty-state {
+        padding: 62px 20px;
+        color: var(--faint);
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: center;
+      }
+
+      .bottom-nav {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: flex;
+        width: 100%;
+        max-width: 480px;
+        margin: 0 auto;
+        border-top: 1px solid var(--line);
+        background: rgba(13, 17, 15, 0.9);
+        backdrop-filter: blur(16px);
+      }
+
+      .bottom-nav button {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        padding: 10px 0 12px;
+        color: var(--faint);
+        font-size: 11px;
+        font-weight: 680;
+      }
+
+      .bottom-nav button.active { color: var(--green); }
+
+      .bottom-nav svg {
+        width: 22px;
+        height: 22px;
+        stroke-width: 1.8;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 84px;
+        left: 50%;
+        z-index: 10;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #dff8ec;
+        color: #07100c;
+        padding: 10px 22px;
+        opacity: 0;
+        pointer-events: none;
+        white-space: nowrap;
+        font-size: 13px;
+        font-weight: 560;
+        transition: opacity 0.2s ease;
+      }
+
+      .toast.show { opacity: 1; }
+
+      /* Month separator */
+      .month-separator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 24px 0 18px;
+        padding: 0 2px;
+      }
+
+      .month-separator-line {
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
+
+      .month-separator-label {
+        color: var(--faint);
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 520px) {
+        .tab-capture {
+          padding: 30px 18px 88px;
+        }
+
+        .tab-list {
+          padding: 18px 16px 100px;
+        }
+
+        .capture-area textarea {
+          min-height: 132px;
+          font-size: 16px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <section class="tab-capture active" id="captureTab" aria-label="灵光收集箱">
+        <div class="date-hint" id="dateHint"></div>
+
+        <div class="capture-area">
+          <textarea id="captureInput" placeholder="写下刚想到的东西…" maxlength="500"></textarea>
+          <div class="capture-footer">
+            <span class="char-count" id="charCount">0 / 500</span>
+            <button class="save-btn" id="saveBtn" type="button" disabled>保存</button>
+          </div>
+        </div>
+
+        <section class="home-active" aria-labelledby="homeActiveTitle">
+          <div class="home-active-header">
+            <h2 id="homeActiveTitle">进行中</h2>
+            <button type="button" id="viewAllActiveBtn">查看更多</button>
+          </div>
+          <div class="home-active-list" id="homeActiveList"></div>
+        </section>
+      </section>
+
+      <section class="tab-list" id="listTab" aria-labelledby="listTitle">
+        <header class="list-header">
+          <h2 id="listTitle">记录</h2>
+          <input
+            class="search-box"
+            id="searchInput"
+            type="search"
+            placeholder="搜索记录..."
+            autocomplete="off"
+          />
+          <div class="filter-group" aria-label="记录筛选">
+            <button class="filter-btn active" type="button" data-filter="all">全部</button>
+            <button class="filter-btn" type="button" data-filter="open">未处理</button>
+            <button class="filter-btn" type="button" data-filter="active">进行中</button>
+            <button class="filter-btn" type="button" data-filter="completed">已完成</button>
+            <button class="filter-btn" type="button" data-filter="abandoned">已放弃</button>
+          </div>
+        </header>
+        <div id="recordList"></div>
+      </section>
+
+      <nav class="bottom-nav" aria-label="底部导航">
+        <button class="active" type="button" data-tab="capture">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          <span>记</span>
+        </button>
+        <button type="button" data-tab="list">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2M9 12h12M3 6h2M9 6h12M3 18h2M9 18h12" /></svg>
+          <span>看</span>
+        </button>
+      </nav>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "spark-inbox-lite-v1";
+
+      function id() {
+        if (crypto.randomUUID) return crypto.randomUUID();
+        return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+      }
+
+      function daysAgo(n) {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        d.setHours(10 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60), 0, 0);
+        return d.getTime();
+      }
+
+      const seedRecords = [
+        { id: id(), content: "智能小车：先想清楚循迹和避障第一版怎么取舍", status: "active", createdAt: daysAgo(0), startedAt: daysAgo(0), completedAt: null, updatedAt: null },
+        { id: id(), content: "HTML视频标签要查 controls、poster、source 三个点", status: "open", createdAt: daysAgo(0), startedAt: null, completedAt: null, updatedAt: null },
+        { id: id(), content: "酒馆学习可能需要先整理一个最小可开始清单", status: "open", createdAt: daysAgo(1), startedAt: null, completedAt: null, updatedAt: null },
+        { id: id(), content: "整理一下本周的待办事项", status: "completed", createdAt: daysAgo(1), startedAt: daysAgo(1), completedAt: daysAgo(0), updatedAt: null },
+        { id: id(), content: "app 不应该只是记录，更应该是想法的暂存入口", status: "completed", createdAt: daysAgo(2), startedAt: daysAgo(2), completedAt: daysAgo(1), updatedAt: null },
+        { id: id(), content: "研究一下 Capacitor 打包 Android 的流程", status: "active", createdAt: daysAgo(2), startedAt: daysAgo(2), completedAt: null, updatedAt: null },
+        { id: id(), content: "先不做复杂优先级矩阵，第一版会太重", status: "abandoned", createdAt: daysAgo(3), startedAt: null, completedAt: null, updatedAt: null },
+        { id: id(), content: "SharedPreferences 存储方案确认", status: "completed", createdAt: daysAgo(3), startedAt: daysAgo(3), completedAt: daysAgo(3), updatedAt: null },
+        { id: id(), content: "底部导航从两 tab 改成三 tab 的方案", status: "completed", createdAt: daysAgo(4), startedAt: daysAgo(4), completedAt: daysAgo(3), updatedAt: null },
+        { id: id(), content: "灵感分类功能：task 和 idea 两种类型", status: "completed", createdAt: daysAgo(5), startedAt: daysAgo(5), completedAt: daysAgo(4), updatedAt: null },
+        { id: id(), content: "看下 Jetpack Compose 的基础组件", status: "open", createdAt: daysAgo(5), startedAt: null, completedAt: null, updatedAt: null },
+        { id: id(), content: "图标设计稿提取脚本优化", status: "completed", createdAt: daysAgo(6), startedAt: daysAgo(6), completedAt: daysAgo(5), updatedAt: null },
+        { id: id(), content: "Android 手动编译打包流程梳理", status: "completed", createdAt: daysAgo(7), startedAt: daysAgo(7), completedAt: daysAgo(6), updatedAt: null },
+        { id: id(), content: "确认 minSdk 和 targetSdk 版本", status: "completed", createdAt: daysAgo(7), startedAt: daysAgo(7), completedAt: daysAgo(7), updatedAt: null },
+        { id: id(), content: "研究 aapt2 和 d8 的命令行用法", status: "completed", createdAt: daysAgo(8), startedAt: daysAgo(8), completedAt: daysAgo(7), updatedAt: null },
+        { id: id(), content: "深色主题配色方案确定", status: "completed", createdAt: daysAgo(9), startedAt: daysAgo(9), completedAt: daysAgo(8), updatedAt: null },
+        { id: id(), content: "移动端适配 max-width 480px 方案", status: "completed", createdAt: daysAgo(9), startedAt: daysAgo(9), completedAt: daysAgo(9), updatedAt: null },
+        { id: id(), content: "状态流转机制设计：open → active → completed", status: "completed", createdAt: daysAgo(10), startedAt: daysAgo(10), completedAt: daysAgo(9), updatedAt: null },
+        { id: id(), content: "localStorage 数据结构定义", status: "completed", createdAt: daysAgo(11), startedAt: daysAgo(11), completedAt: daysAgo(10), updatedAt: null },
+        { id: id(), content: "看看有没有现成的轻量级状态管理方案", status: "abandoned", createdAt: daysAgo(11), startedAt: null, completedAt: null, updatedAt: null },
+        { id: id(), content: "首页设计：只保留日期和输入区", status: "completed", createdAt: daysAgo(12), startedAt: daysAgo(12), completedAt: daysAgo(11), updatedAt: null },
+        { id: id(), content: "项目初始化，确定技术栈", status: "completed", createdAt: daysAgo(13), startedAt: daysAgo(13), completedAt: daysAgo(12), updatedAt: null },
+        { id: id(), content: "调研几个备忘录 app 的交互设计", status: "completed", createdAt: daysAgo(13), startedAt: daysAgo(13), completedAt: daysAgo(13), updatedAt: null },
+        { id: id(), content: "确定 app 名称和定位", status: "completed", createdAt: daysAgo(14), startedAt: daysAgo(14), completedAt: daysAgo(13), updatedAt: null },
+        { id: id(), content: "记录删除的二次确认机制", status: "completed", createdAt: daysAgo(16), startedAt: daysAgo(16), completedAt: daysAgo(15), updatedAt: null },
+        { id: id(), content: "Toast 提示组件实现", status: "completed", createdAt: daysAgo(18), startedAt: daysAgo(18), completedAt: daysAgo(17), updatedAt: null },
+        { id: id(), content: "搜索功能的实时过滤逻辑", status: "completed", createdAt: daysAgo(18), startedAt: daysAgo(18), completedAt: daysAgo(18), updatedAt: null },
+        { id: id(), content: "记录卡片的状态圆圈设计", status: "completed", createdAt: daysAgo(20), startedAt: daysAgo(20), completedAt: daysAgo(19), updatedAt: null },
+        { id: id(), content: "日期分组显示逻辑", status: "completed", createdAt: daysAgo(22), startedAt: daysAgo(22), completedAt: daysAgo(21), updatedAt: null },
+        { id: id(), content: "初始原型搭建", status: "completed", createdAt: daysAgo(25), startedAt: daysAgo(25), completedAt: daysAgo(23), updatedAt: null },
+      ];
+
+      let state = loadState();
+      let activeTab = "capture";
+      let filter = "all";
+      let toastTimer;
+      const RECENT_DAYS = 7;
+
+      const input = document.querySelector("#captureInput");
+      const saveBtn = document.querySelector("#saveBtn");
+      const charCount = document.querySelector("#charCount");
+      const homeActiveList = document.querySelector("#homeActiveList");
+      const viewAllActiveBtn = document.querySelector("#viewAllActiveBtn");
+      const searchInput = document.querySelector("#searchInput");
+      const recordList = document.querySelector("#recordList");
+
+      function loadState() {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (!saved) return { records: seedRecords };
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.records) && parsed.records.length > 0) return { records: parsed.records };
+        } catch { return { records: seedRecords }; }
+        return { records: seedRecords };
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function persistAndRender() {
+        saveState();
+        render();
+      }
+
+      function formatDateTime(timestamp) {
+        return new Intl.DateTimeFormat("zh-CN", {
+          month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+        }).format(new Date(timestamp));
+      }
+
+      function dateKey(timestamp) {
+        const date = new Date(timestamp);
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+      }
+
+      function todayKey() { return dateKey(Date.now()); }
+
+      function yesterdayKey() {
+        const date = new Date();
+        date.setDate(date.getDate() - 1);
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+      }
+
+      function dayLabel(key) {
+        if (key === todayKey()) return "今天";
+        if (key === yesterdayKey()) return "昨天";
+        const date = new Date(key);
+        return `${date.getMonth() + 1}月${date.getDate()}日`;
+      }
+
+      function statusLabel(status) {
+        return { open: "未处理", active: "进行中", completed: "已完成", abandoned: "已放弃" }[status];
+      }
+
+      function daysSince(dateKeyVal) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const date = new Date(dateKeyVal);
+        return Math.floor((today - date) / (1000 * 60 * 60 * 24));
+      }
+
+      function filteredRecords() {
+        const query = searchInput.value.trim().toLowerCase();
+        return [...state.records]
+          .filter((record) => {
+            if (filter === "all") return record.status !== "abandoned";
+            return record.status === filter;
+          })
+          .filter((record) => !query || record.content.toLowerCase().includes(query))
+          .sort((a, b) => b.createdAt - a.createdAt);
+      }
+
+      function groupedRecords(records) {
+        const groups = new Map();
+        records.forEach((record) => {
+          const key = dateKey(record.createdAt);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(record);
+        });
+        return [...groups.entries()]
+          .sort(([a], [b]) => (a > b ? -1 : 1))
+          .map(([key, records]) => ({ key, records }));
+      }
+
+      function monthLabel(dateKeyVal) {
+        const date = new Date(dateKeyVal);
+        return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+      }
+
+      // Track collapsed state per date key
+      const collapsedState = new Set();
+
+      function isCollapsed(dateKeyVal) {
+        if (collapsedState.has(dateKeyVal)) {
+          return collapsedState.has(dateKeyVal + ":collapsed");
+        }
+        // Default: collapse if older than RECENT_DAYS
+        return daysSince(dateKeyVal) > RECENT_DAYS;
+      }
+
+      function toggleCollapse(dateKeyVal) {
+        const key = dateKeyVal + ":collapsed";
+        if (collapsedState.has(key)) {
+          collapsedState.delete(key);
+        } else {
+          collapsedState.add(key);
+        }
+        renderList();
+      }
+
+      function getStatusSummary(records) {
+        const counts = { open: 0, active: 0, completed: 0, abandoned: 0 };
+        records.forEach(r => counts[r.status]++);
+        return counts;
+      }
+
+      function addRecord() {
+        const content = input.value.trim();
+        if (!content) return;
+        state.records.unshift({
+          id: id(), content, status: "open", createdAt: Date.now(),
+          startedAt: null, completedAt: null, abandonedAt: null, updatedAt: null,
+        });
+        input.value = "";
+        updateInputState();
+        persistAndRender();
+        showToast("已保存");
+      }
+
+      function startRecord(recordId) {
+        const now = Date.now();
+        state.records = state.records.map(r => r.id === recordId ? { ...r, status: "active", startedAt: r.startedAt || now, updatedAt: now } : r);
+        persistAndRender();
+        showToast("已开始");
+      }
+
+      function completeRecord(recordId) {
+        const now = Date.now();
+        state.records = state.records.map(r => r.id === recordId ? { ...r, status: "completed", startedAt: r.startedAt || now, completedAt: now, abandonedAt: null, updatedAt: now } : r);
+        persistAndRender();
+        showToast("已完成");
+      }
+
+      function editRecord(recordId) {
+        const record = state.records.find(r => r.id === recordId);
+        if (!record) return;
+        const next = window.prompt("编辑记录", record.content);
+        if (next === null) return;
+        const content = next.trim();
+        if (!content) { showToast("内容不能为空"); return; }
+        state.records = state.records.map(r => r.id === recordId ? { ...r, content, updatedAt: Date.now() } : r);
+        persistAndRender();
+        showToast("已更新");
+      }
+
+      function reopenRecord(recordId) {
+        state.records = state.records.map(r => r.id === recordId ? { ...r, status: "open", startedAt: null, completedAt: null, abandonedAt: null, updatedAt: Date.now() } : r);
+        persistAndRender();
+        showToast("已恢复为未处理");
+      }
+
+      function pauseRecord(recordId) {
+        state.records = state.records.map(r => r.id === recordId ? { ...r, status: "open", updatedAt: Date.now() } : r);
+        persistAndRender();
+        showToast("已放回未处理");
+      }
+
+      function abandonRecord(recordId) {
+        state.records = state.records.map(r => r.id === recordId ? { ...r, status: "abandoned", completedAt: null, abandonedAt: Date.now(), updatedAt: Date.now() } : r);
+        persistAndRender();
+        showToast("已放弃");
+      }
+
+      function deleteRecord(recordId) {
+        state.records = state.records.filter(r => r.id !== recordId);
+        persistAndRender();
+        showToast("已删除");
+      }
+
+      function cycleRecord(record) {
+        if (record.status === "open") { startRecord(record.id); return; }
+        if (record.status === "active") { completeRecord(record.id); return; }
+        reopenRecord(record.id);
+      }
+
+      function renderCapture() {
+        const now = new Date();
+        const weekday = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][now.getDay()];
+        document.querySelector("#dateHint").textContent = `${now.getMonth() + 1}月${now.getDate()}日 · ${weekday}`;
+        renderHomeActive();
+      }
+
+      function renderHomeActive() {
+        const activeRecords = [...state.records]
+          .filter(r => r.status === "active")
+          .sort((a, b) => (b.startedAt || b.createdAt) - (a.startedAt || a.createdAt));
+        const visibleRecords = activeRecords.slice(0, 3);
+
+        homeActiveList.replaceChildren();
+        if (visibleRecords.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "home-more";
+          empty.textContent = "还没有进行中的记录。";
+          homeActiveList.append(empty);
+          return;
+        }
+
+        visibleRecords.forEach(r => homeActiveList.append(createHomeTask(r)));
+
+        if (activeRecords.length > visibleRecords.length) {
+          const more = document.createElement("div");
+          more.className = "home-more";
+          more.textContent = `还有 ${activeRecords.length - visibleRecords.length} 条，去"看"页面处理。`;
+          homeActiveList.append(more);
+        }
+      }
+
+      function createHomeTask(record) {
+        const item = document.createElement("article");
+        item.className = `home-task ${record.status}`;
+
+        const statusButton = document.createElement("button");
+        statusButton.className = "status-btn";
+        statusButton.type = "button";
+        statusButton.setAttribute("aria-label", statusLabel(record.status));
+        statusButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>';
+        statusButton.addEventListener("click", () => cycleRecord(record));
+
+        const body = document.createElement("div");
+        body.className = "home-task-body";
+
+        const title = document.createElement("div");
+        title.className = "home-task-title";
+        title.textContent = record.content;
+
+        const meta = document.createElement("div");
+        meta.className = "home-task-meta";
+        meta.textContent = `开始 ${formatDateTime(record.startedAt || record.createdAt)}`;
+
+        const actions = document.createElement("div");
+        actions.className = "home-task-actions";
+        actions.append(actionButton("编辑", () => editRecord(record.id), "secondary"));
+
+        body.append(title, meta, actions);
+        item.append(statusButton, body);
+        return item;
+      }
+
+      function renderList() {
+        const groups = groupedRecords(filteredRecords());
+        recordList.replaceChildren();
+
+        if (groups.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.innerHTML = searchInput.value.trim() ? "没有找到相关记录" : "还没有记录<br />去"记"页面写下第一条";
+          recordList.append(empty);
+          return;
+        }
+
+        let lastMonth = null;
+
+        groups.forEach((group) => {
+          const currentMonth = monthLabel(group.key);
+
+          // Insert month separator
+          if (currentMonth !== lastMonth) {
+            if (lastMonth !== null) {
+              const sep = document.createElement("div");
+              sep.className = "month-separator";
+              sep.innerHTML = `<div class="month-separator-line"></div><span class="month-separator-label">${currentMonth}</span><div class="month-separator-line"></div>`;
+              recordList.append(sep);
+            }
+            lastMonth = currentMonth;
+          }
+
+          const collapsed = isCollapsed(group.key);
+          const summary = getStatusSummary(group.records);
+
+          const groupNode = document.createElement("section");
+          groupNode.className = `day-group${collapsed ? " collapsed" : ""}`;
+
+          // Day header (clickable to toggle)
+          const header = document.createElement("div");
+          header.className = "day-header";
+          header.addEventListener("click", () => toggleCollapse(group.key));
+
+          const headerLeft = document.createElement("div");
+          headerLeft.className = "day-header-left";
+
+          const label = document.createElement("span");
+          label.className = "day-label";
+          label.textContent = dayLabel(group.key);
+
+          const count = document.createElement("span");
+          count.className = "day-count";
+          count.textContent = `${group.records.length}条`;
+
+          headerLeft.append(label, count);
+
+          // Status summary dots
+          const statusSummary = document.createElement("div");
+          statusSummary.className = "day-status-summary";
+
+          if (summary.open > 0) {
+            const dot = document.createElement("div");
+            dot.className = "status-dot open";
+            dot.title = `${summary.open}条未处理`;
+            statusSummary.append(dot);
+          }
+          if (summary.active > 0) {
+            const dot = document.createElement("div");
+            dot.className = "status-dot active";
+            dot.title = `${summary.active}条进行中`;
+            statusSummary.append(dot);
+          }
+          if (summary.completed > 0) {
+            const dot = document.createElement("div");
+            dot.className = "status-dot completed";
+            dot.title = `${summary.completed}条已完成`;
+            statusSummary.append(dot);
+          }
+
+          // Chevron
+          const chevron = document.createElement("div");
+          chevron.className = "day-chevron";
+          chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+          header.append(headerLeft, statusSummary, chevron);
+
+          // Cards container
+          const cardsContainer = document.createElement("div");
+          cardsContainer.className = "day-cards";
+
+          group.records.forEach(r => cardsContainer.append(createRecordCard(r)));
+
+          groupNode.append(header, cardsContainer);
+          recordList.append(groupNode);
+
+          // Set initial max-height after DOM insert
+          if (!collapsed) {
+            requestAnimationFrame(() => {
+              cardsContainer.style.maxHeight = cardsContainer.scrollHeight + "px";
+            });
+          }
+        });
+      }
+
+      function createRecordCard(record) {
+        const card = document.createElement("article");
+        card.className = `record-card ${record.status}`;
+
+        const statusButton = document.createElement("button");
+        statusButton.className = "status-btn";
+        statusButton.type = "button";
+        statusButton.setAttribute("aria-label", statusLabel(record.status));
+        statusButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>';
+        statusButton.addEventListener("click", () => cycleRecord(record));
+
+        const body = document.createElement("div");
+        body.className = "record-body";
+
+        const text = document.createElement("div");
+        text.className = "record-text";
+        text.textContent = record.content;
+
+        const meta = document.createElement("div");
+        meta.className = "record-meta";
+        meta.textContent = metaText(record);
+
+        const actions = document.createElement("div");
+        actions.className = "record-actions";
+        appendActions(actions, record);
+
+        body.append(text, meta, actions);
+
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "record-delete";
+        deleteButton.type = "button";
+        deleteButton.setAttribute("aria-label", "删除");
+        deleteButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg>';
+        deleteButton.addEventListener("click", () => deleteRecord(record.id));
+
+        card.append(statusButton, body, deleteButton);
+        return card;
+      }
+
+      function appendActions(container, record) {
+        if (record.status === "open") {
+          container.append(actionButton("编辑", () => editRecord(record.id), "secondary"));
+          container.append(actionButton("完成", () => completeRecord(record.id), "secondary"));
+          container.append(actionButton("放弃", () => abandonRecord(record.id), "danger"));
+          return;
+        }
+        if (record.status === "active") {
+          container.append(actionButton("编辑", () => editRecord(record.id), "secondary"));
+          container.append(actionButton("放回未处理", () => pauseRecord(record.id), "secondary"));
+          container.append(actionButton("放弃", () => abandonRecord(record.id), "danger"));
+          return;
+        }
+        if (record.status === "completed") {
+          container.append(actionButton("编辑", () => editRecord(record.id), "secondary"));
+          container.append(actionButton("放弃", () => abandonRecord(record.id), "danger"));
+          return;
+        }
+        container.append(actionButton("编辑", () => editRecord(record.id), "secondary"));
+      }
+
+      function actionButton(label, onClick, className = "") {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        if (className) button.className = className;
+        button.addEventListener("click", onClick);
+        return button;
+      }
+
+      function metaText(record) {
+        const parts = [`${statusLabel(record.status)} · 记录 ${formatDateTime(record.createdAt)}`];
+        if (record.startedAt) parts.push(`开始 ${formatDateTime(record.startedAt)}`);
+        if (record.completedAt) parts.push(`完成 ${formatDateTime(record.completedAt)}`);
+        if (record.abandonedAt) parts.push(`放弃 ${formatDateTime(record.abandonedAt)}`);
+        if (record.updatedAt) parts.push(`更新 ${formatDateTime(record.updatedAt)}`);
+        return parts.join(" · ");
+      }
+
+      function switchTab(tab) {
+        activeTab = tab;
+        document.querySelectorAll(".bottom-nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+        document.querySelector("#captureTab").classList.toggle("active", tab === "capture");
+        document.querySelector("#listTab").classList.toggle("active", tab === "list");
+        render();
+      }
+
+      function updateInputState() {
+        const length = input.value.trim().length;
+        charCount.textContent = `${length} / 500`;
+        saveBtn.disabled = length === 0;
+      }
+
+      function showToast(message) {
+        clearTimeout(toastTimer);
+        const toast = document.querySelector("#toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 1600);
+      }
+
+      function render() {
+        renderCapture();
+        renderList();
+      }
+
+      document.querySelectorAll(".bottom-nav button").forEach(button => {
+        button.addEventListener("click", () => switchTab(button.dataset.tab));
+      });
+
+      viewAllActiveBtn.addEventListener("click", () => {
+        filter = "active";
+        document.querySelectorAll(".filter-btn").forEach(item => {
+          item.classList.toggle("active", item.dataset.filter === "active");
+        });
+        switchTab("list");
+      });
+
+      document.querySelectorAll(".filter-btn").forEach(button => {
+        button.addEventListener("click", () => {
+          document.querySelectorAll(".filter-btn").forEach(item => item.classList.remove("active"));
+          button.classList.add("active");
+          filter = button.dataset.filter;
+          renderList();
+        });
+      });
+
+      input.addEventListener("input", updateInputState);
+      searchInput.addEventListener("input", renderList);
+      input.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") addRecord();
+      });
+      saveBtn.addEventListener("click", addRecord);
+
+      render();
+      input.focus();
+    </script>
+  </body>
+</html>

@@ -31,9 +31,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class MainActivity extends Activity {
@@ -61,6 +63,8 @@ public final class MainActivity extends Activity {
     private String captureType = InboxRecord.TYPE_TASK;
     private String taskFilter = "all";
     private String ideaFilter = "all";
+    private static final int RECENT_DAYS = 7;
+    private final Set<String> monthCollapsed = new HashSet<>();
 
     private FrameLayout contentFrame;
     private LinearLayout captureView;
@@ -626,16 +630,128 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        LinkedHashMap<String, ArrayList<InboxRecord>> groups = groupedByDay(filtered);
-        for (Map.Entry<String, ArrayList<InboxRecord>> entry : groups.entrySet()) {
-            TextView day = label(dayLabel(entry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
-            LinearLayout.LayoutParams dayParams = wrap();
-            dayParams.setMargins(0, dp(10), 0, dp(10));
-            taskRecordList.addView(day, dayParams);
-            for (InboxRecord record : entry.getValue()) {
-                taskRecordList.addView(taskCard(record));
+        ArrayList<InboxRecord> recent = new ArrayList<>();
+        ArrayList<InboxRecord> old = new ArrayList<>();
+        for (InboxRecord r : filtered) {
+            if (isRecent(r.createdAt)) recent.add(r);
+            else old.add(r);
+        }
+
+        if (!recent.isEmpty()) {
+            LinkedHashMap<String, ArrayList<InboxRecord>> dayGroups = groupedByDay(recent);
+            for (Map.Entry<String, ArrayList<InboxRecord>> entry : dayGroups.entrySet()) {
+                TextView day = label(dayLabel(entry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
+                LinearLayout.LayoutParams dayParams = wrap();
+                dayParams.setMargins(0, dp(10), 0, dp(10));
+                taskRecordList.addView(day, dayParams);
+                for (InboxRecord record : entry.getValue()) {
+                    taskRecordList.addView(taskCard(record));
+                }
             }
         }
+
+        if (!old.isEmpty()) {
+            LinkedHashMap<String, ArrayList<InboxRecord>> monthGroups = groupedByMonth(old);
+            for (Map.Entry<String, ArrayList<InboxRecord>> entry : monthGroups.entrySet()) {
+                String mk = entry.getKey();
+                boolean collapsed = monthCollapsed.contains(mk);
+                taskRecordList.addView(monthHeader(mk, entry.getValue(), collapsed, true));
+                if (!collapsed) {
+                    LinkedHashMap<String, ArrayList<InboxRecord>> dayGroups = groupedByDay(entry.getValue());
+                    for (Map.Entry<String, ArrayList<InboxRecord>> dayEntry : dayGroups.entrySet()) {
+                        TextView day = label(dayLabel(dayEntry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
+                        LinearLayout.LayoutParams dayParams = wrap();
+                        dayParams.setMargins(0, dp(10), 0, dp(10));
+                        taskRecordList.addView(day, dayParams);
+                        for (InboxRecord record : dayEntry.getValue()) {
+                            taskRecordList.addView(taskCard(record));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private View monthHeader(final String mk, ArrayList<InboxRecord> records, boolean collapsed, final boolean isTask) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(12), dp(10), dp(12), dp(10));
+        header.setBackground(rounded(COLOR_CARD_SOFT, COLOR_LINE, 14));
+
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.HORIZONTAL);
+        left.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView title = label(monthLabel(mk), 15, COLOR_TEXT, Typeface.BOLD);
+        left.addView(title, wrap());
+
+        TextView count = label(records.size() + "条", 12, COLOR_FAINT, Typeface.NORMAL);
+        LinearLayout.LayoutParams countParams = wrap();
+        countParams.setMargins(dp(8), 0, 0, 0);
+        left.addView(count, countParams);
+
+        header.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        // Status dots
+        LinearLayout dots = new LinearLayout(this);
+        dots.setOrientation(LinearLayout.HORIZONTAL);
+        dots.setGravity(Gravity.CENTER_VERTICAL);
+        if (isTask) {
+            int openC = 0, activeC = 0, completedC = 0;
+            for (InboxRecord r : records) {
+                if (InboxRecord.STATUS_OPEN.equals(r.status)) openC++;
+                else if (InboxRecord.STATUS_ACTIVE.equals(r.status)) activeC++;
+                else if (InboxRecord.STATUS_COMPLETED.equals(r.status)) completedC++;
+            }
+            if (openC > 0) dots.addView(statusDot(COLOR_FAINT), dotParams(dots));
+            if (activeC > 0) dots.addView(statusDot(COLOR_AMBER), dotParams(dots));
+            if (completedC > 0) dots.addView(statusDot(COLOR_GREEN), dotParams(dots));
+        } else {
+            int unprocC = 0, archC = 0;
+            for (InboxRecord r : records) {
+                if (InboxRecord.STATUS_UNPROCESSED.equals(r.status)) unprocC++;
+                else if (InboxRecord.STATUS_ARCHIVED.equals(r.status)) archC++;
+            }
+            if (unprocC > 0) dots.addView(statusDot(COLOR_FAINT), dotParams(dots));
+            if (archC > 0) dots.addView(statusDot(COLOR_GREEN), dotParams(dots));
+        }
+        LinearLayout.LayoutParams dotsParams = wrap();
+        dotsParams.setMargins(0, 0, dp(10), 0);
+        header.addView(dots, dotsParams);
+
+        // Chevron
+        TextView chevron = label(collapsed ? "▸" : "▾", 16, COLOR_FAINT, Typeface.NORMAL);
+        header.addView(chevron, new LinearLayout.LayoutParams(dp(20), ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        header.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                if (monthCollapsed.contains(mk)) monthCollapsed.remove(mk);
+                else monthCollapsed.add(mk);
+                if (isTask) renderTaskList();
+                else renderIdeaList();
+            }
+        });
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(14), 0, dp(6));
+        header.setLayoutParams(params);
+        return header;
+    }
+
+    private View statusDot(int color) {
+        View dot = new View(this);
+        dot.setBackground(rounded(color, 0x00000000, 999));
+        return dot;
+    }
+
+    private LinearLayout.LayoutParams dotParams(LinearLayout parent) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(6), dp(6));
+        if (parent.getChildCount() > 0) p.setMargins(dp(4), 0, 0, 0);
+        return p;
     }
 
     private View taskCard(final InboxRecord record) {
@@ -758,14 +874,44 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        LinkedHashMap<String, ArrayList<InboxRecord>> groups = groupedByDay(filtered);
-        for (Map.Entry<String, ArrayList<InboxRecord>> entry : groups.entrySet()) {
-            TextView day = label(dayLabel(entry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
-            LinearLayout.LayoutParams dayParams = wrap();
-            dayParams.setMargins(0, dp(10), 0, dp(10));
-            ideaRecordList.addView(day, dayParams);
-            for (InboxRecord record : entry.getValue()) {
-                ideaRecordList.addView(ideaCard(record));
+        ArrayList<InboxRecord> recent = new ArrayList<>();
+        ArrayList<InboxRecord> old = new ArrayList<>();
+        for (InboxRecord r : filtered) {
+            if (isRecent(r.createdAt)) recent.add(r);
+            else old.add(r);
+        }
+
+        if (!recent.isEmpty()) {
+            LinkedHashMap<String, ArrayList<InboxRecord>> dayGroups = groupedByDay(recent);
+            for (Map.Entry<String, ArrayList<InboxRecord>> entry : dayGroups.entrySet()) {
+                TextView day = label(dayLabel(entry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
+                LinearLayout.LayoutParams dayParams = wrap();
+                dayParams.setMargins(0, dp(10), 0, dp(10));
+                ideaRecordList.addView(day, dayParams);
+                for (InboxRecord record : entry.getValue()) {
+                    ideaRecordList.addView(ideaCard(record));
+                }
+            }
+        }
+
+        if (!old.isEmpty()) {
+            LinkedHashMap<String, ArrayList<InboxRecord>> monthGroups = groupedByMonth(old);
+            for (Map.Entry<String, ArrayList<InboxRecord>> entry : monthGroups.entrySet()) {
+                String mk = entry.getKey();
+                boolean collapsed = monthCollapsed.contains(mk);
+                ideaRecordList.addView(monthHeader(mk, entry.getValue(), collapsed, false));
+                if (!collapsed) {
+                    LinkedHashMap<String, ArrayList<InboxRecord>> dayGroups = groupedByDay(entry.getValue());
+                    for (Map.Entry<String, ArrayList<InboxRecord>> dayEntry : dayGroups.entrySet()) {
+                        TextView day = label(dayLabel(dayEntry.getKey()), 14, COLOR_MUTED, Typeface.BOLD);
+                        LinearLayout.LayoutParams dayParams = wrap();
+                        dayParams.setMargins(0, dp(10), 0, dp(10));
+                        ideaRecordList.addView(day, dayParams);
+                        for (InboxRecord record : dayEntry.getValue()) {
+                            ideaRecordList.addView(ideaCard(record));
+                        }
+                    }
+                }
             }
         }
     }
@@ -1004,6 +1150,41 @@ public final class MainActivity extends Activity {
         LinkedHashMap<String, ArrayList<InboxRecord>> map = new LinkedHashMap<>();
         for (InboxRecord record : list) {
             String key = dateKey(record.createdAt);
+            if (!map.containsKey(key)) {
+                map.put(key, new ArrayList<InboxRecord>());
+            }
+            map.get(key).add(record);
+        }
+        return map;
+    }
+
+    private String monthKey(long timestamp) {
+        return new SimpleDateFormat("yyyy-M", Locale.CHINA).format(timestamp);
+    }
+
+    private boolean isRecent(long timestamp) {
+        long now = System.currentTimeMillis();
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+        long diff = today.getTimeInMillis() - timestamp;
+        return diff < (long) RECENT_DAYS * 24 * 60 * 60 * 1000;
+    }
+
+    private String monthLabel(String mk) {
+        String[] parts = mk.split("-");
+        if (parts.length == 2) {
+            return parts[0] + "年" + Integer.parseInt(parts[1]) + "月";
+        }
+        return mk;
+    }
+
+    private LinkedHashMap<String, ArrayList<InboxRecord>> groupedByMonth(ArrayList<InboxRecord> list) {
+        LinkedHashMap<String, ArrayList<InboxRecord>> map = new LinkedHashMap<>();
+        for (InboxRecord record : list) {
+            String key = monthKey(record.createdAt);
             if (!map.containsKey(key)) {
                 map.put(key, new ArrayList<InboxRecord>());
             }

@@ -80,3 +80,22 @@
 - 仓库根目录保留 HTML 预览版本。
 - 原生 Android 版本放在 `native/` 子目录，避免预览文件和 Android 源码混在同一层。
 - 构建产物、APK、debug keystore 已通过 `.gitignore` 排除。
+
+### 应用图标替换
+
+- 从设计稿 `design/icon.png` 中提取方案 B "Spark核心" 图标，裁出圆角矩形部分。
+- 使用 PowerShell + .NET System.Drawing 完成裁剪和缩放，不依赖 Python/Pillow。
+- 生成 5 个密度的 mipmap PNG：mdpi(48)、hdpi(72)、xhdpi(96)、xxhdpi(144)、xxxhdpi(192)。
+- `AndroidManifest.xml` 图标引用从 `@drawable/ic_launcher`（XML vector）改为 `@mipmap/ic_launcher`（PNG）。
+- 真机安装验证通过，图标显示正确。
+
+## 2026-05-27
+
+### 任务/灵感列表月折叠
+
+- 任务页面和灵感页面新增时间分层展示：最近 7 天按日期展开，超过 7 天的按月折叠。
+- 月份卡片显示"5月 · 18条"及状态色点摘要（任务：未处理/进行中/已完成；灵感：未处理/已整理），点击可展开/折叠。
+- 折叠状态在页面切换和重新渲染时保持。
+- HTML 预览版 `preview-v3.html` 和原生 Android 版 `MainActivity.java` 同步实现。
+- HTML 假数据扩展至 55 天前，覆盖两个月折叠区间。
+- `preview-v3-collapsible.html` 为独立原型文件，可用于后续参考。
