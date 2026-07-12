@@ -414,6 +414,7 @@ public final class MainActivity extends Activity {
         addIdeaFilter(filters, "全部", "all");
         addIdeaFilter(filters, "未处理", InboxRecord.STATUS_UNPROCESSED);
         addIdeaFilter(filters, "已整理", InboxRecord.STATUS_ARCHIVED);
+        addIdeaFilter(filters, "已放弃", InboxRecord.STATUS_ABANDONED);
         screen.addView(filtersScroll, new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(42)
@@ -708,13 +709,15 @@ public final class MainActivity extends Activity {
             if (activeC > 0) dots.addView(statusDot(COLOR_AMBER), dotParams(dots));
             if (completedC > 0) dots.addView(statusDot(COLOR_GREEN), dotParams(dots));
         } else {
-            int unprocC = 0, archC = 0;
+            int unprocC = 0, archC = 0, abandonC = 0;
             for (InboxRecord r : records) {
                 if (InboxRecord.STATUS_UNPROCESSED.equals(r.status)) unprocC++;
                 else if (InboxRecord.STATUS_ARCHIVED.equals(r.status)) archC++;
+                else if (InboxRecord.STATUS_ABANDONED.equals(r.status)) abandonC++;
             }
             if (unprocC > 0) dots.addView(statusDot(COLOR_FAINT), dotParams(dots));
             if (archC > 0) dots.addView(statusDot(COLOR_GREEN), dotParams(dots));
+            if (abandonC > 0) dots.addView(statusDot(COLOR_RED), dotParams(dots));
         }
         LinearLayout.LayoutParams dotsParams = wrap();
         dotsParams.setMargins(0, 0, dp(10), 0);
@@ -923,13 +926,14 @@ public final class MainActivity extends Activity {
         card.setPadding(dp(14), dp(15), dp(10), dp(13));
         card.setBackground(rounded(COLOR_CARD, COLOR_LINE, 14));
         boolean archived = InboxRecord.STATUS_ARCHIVED.equals(record.status);
-        card.setAlpha(archived ? 0.72f : 1f);
+        boolean abandoned = InboxRecord.STATUS_ABANDONED.equals(record.status);
+        card.setAlpha(abandoned ? 0.64f : archived ? 0.72f : 1f);
 
-        final ArchiveCircle circle = new ArchiveCircle(this);
-        circle.setArchived(archived);
+        final IdeaStatusCircle circle = new IdeaStatusCircle(this);
+        circle.setStatus(record.status);
         circle.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                toggleIdeaArchive(record);
+                cycleIdea(record);
             }
         });
         LinearLayout.LayoutParams circleParams = new LinearLayout.LayoutParams(dp(24), dp(24));
@@ -938,9 +942,9 @@ public final class MainActivity extends Activity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        TextView content = label(record.content, 15, archived ? COLOR_MUTED : COLOR_TEXT, Typeface.NORMAL);
+        TextView content = label(record.content, 15, (archived || abandoned) ? COLOR_MUTED : COLOR_TEXT, Typeface.NORMAL);
         content.setMaxLines(4);
-        if (archived) {
+        if (archived || abandoned) {
             content.setPaintFlags(content.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         }
         body.addView(content, wrap());
@@ -954,6 +958,19 @@ public final class MainActivity extends Activity {
                 editRecord(record);
             }
         }));
+        if (!abandoned && !archived) {
+            ideaActions.addView(actionBtn("放弃", COLOR_RED, new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    abandonIdea(record);
+                }
+            }));
+        } else if (abandoned) {
+            ideaActions.addView(actionBtn("恢复", COLOR_MUTED, new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    recoverIdea(record);
+                }
+            }));
+        }
         body.addView(ideaActions, wrap());
         card.addView(body, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
@@ -1057,6 +1074,35 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void cycleIdea(InboxRecord record) {
+        if (InboxRecord.STATUS_UNPROCESSED.equals(record.status)) {
+            record.status = InboxRecord.STATUS_ARCHIVED;
+            record.archivedAt = System.currentTimeMillis();
+            persistAndRender("已标记为已整理");
+        } else {
+            record.status = InboxRecord.STATUS_UNPROCESSED;
+            record.archivedAt = 0L;
+            record.abandonedAt = 0L;
+            persistAndRender("已恢复为未处理");
+        }
+    }
+
+    private void abandonIdea(InboxRecord record) {
+        long now = System.currentTimeMillis();
+        record.status = InboxRecord.STATUS_ABANDONED;
+        record.archivedAt = 0L;
+        record.abandonedAt = now;
+        record.updatedAt = now;
+        persistAndRender("已放弃");
+    }
+
+    private void recoverIdea(InboxRecord record) {
+        record.status = InboxRecord.STATUS_UNPROCESSED;
+        record.abandonedAt = 0L;
+        record.updatedAt = System.currentTimeMillis();
+        persistAndRender("已恢复为未处理");
+    }
+
     private void editRecord(final InboxRecord record) {
         final EditText editor = new EditText(this);
         editor.setText(record.content);
@@ -1134,6 +1180,7 @@ public final class MainActivity extends Activity {
         ArrayList<InboxRecord> filtered = new ArrayList<>();
         for (InboxRecord record : records) {
             if (!InboxRecord.TYPE_IDEA.equals(record.type)) continue;
+            if ("all".equals(ideaFilter) && InboxRecord.STATUS_ABANDONED.equals(record.status)) continue;
             if (!"all".equals(ideaFilter) && !ideaFilter.equals(record.status)) continue;
             if (!query.isEmpty() && !record.content.toLowerCase(Locale.CHINA).contains(query)) continue;
             filtered.add(record);
@@ -1241,6 +1288,9 @@ public final class MainActivity extends Activity {
         String text = "记录 " + formatDateTime(record.createdAt);
         if (record.archivedAt > 0L) {
             text += " · 整理 " + formatDateTime(record.archivedAt);
+        }
+        if (record.abandonedAt > 0L) {
+            text += " · 放弃 " + formatDateTime(record.abandonedAt);
         }
         return text;
     }
@@ -1469,20 +1519,20 @@ public final class MainActivity extends Activity {
         }
     }
 
-    // ── Archive Circle (for ideas) ──
+    // ── Idea Status Circle (for ideas) ──
 
-    public static final class ArchiveCircle extends View {
+    public static final class IdeaStatusCircle extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path checkPath = new Path();
-        private boolean archived = false;
+        private String status = InboxRecord.STATUS_UNPROCESSED;
 
-        public ArchiveCircle(Context context) {
+        public IdeaStatusCircle(Context context) {
             super(context);
             setWillNotDraw(false);
         }
 
-        void setArchived(boolean archived) {
-            this.archived = archived;
+        void setStatus(String status) {
+            this.status = status;
             invalidate();
         }
 
@@ -1495,25 +1545,41 @@ public final class MainActivity extends Activity {
             float cy = height / 2f;
             float radius = Math.min(width, height) / 2f - 2f;
 
-            if (archived) {
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(COLOR_PURPLE);
-                canvas.drawCircle(cx, cy, radius, paint);
+            int stroke = COLOR_FAINT;
+            int fill = 0x00000000;
+            if (InboxRecord.STATUS_ARCHIVED.equals(status)) {
+                stroke = COLOR_PURPLE;
+                fill = COLOR_PURPLE_SOFT;
+            } else if (InboxRecord.STATUS_ABANDONED.equals(status)) {
+                stroke = COLOR_RED;
+                fill = COLOR_RED_SOFT;
+            }
 
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(fill);
+            canvas.drawCircle(cx, cy, radius, paint);
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(3f);
+            paint.setColor(stroke);
+            canvas.drawCircle(cx, cy, radius, paint);
+
+            if (InboxRecord.STATUS_ARCHIVED.equals(status)) {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(3.5f);
-                paint.setColor(0xFFFFFFFF);
+                paint.setColor(0xFF07100C);
                 checkPath.reset();
                 float s = radius * 0.45f;
                 checkPath.moveTo(cx - s * 0.8f, cy);
                 checkPath.lineTo(cx - s * 0.2f, cy + s * 0.5f);
                 checkPath.lineTo(cx + s, cy - s * 0.6f);
                 canvas.drawPath(checkPath, paint);
-            } else {
+            } else if (InboxRecord.STATUS_ABANDONED.equals(status)) {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(3f);
-                paint.setColor(COLOR_FAINT);
-                canvas.drawCircle(cx, cy, radius, paint);
+                paint.setColor(COLOR_RED);
+                float s = radius * 0.5f;
+                canvas.drawLine(cx - s, cy, cx + s, cy, paint);
             }
         }
     }
